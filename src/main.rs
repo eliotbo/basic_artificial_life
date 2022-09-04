@@ -1,7 +1,21 @@
-//! Notes:
-//! wglsl error messages do not display the correct line numbers when comparing to the
-//! buffer and image scripts because the shader that is read by the GPU includes
-//! the uniform and the bindings, which add about 50 lines of code
+// You actually don't need a quadtree here: https://www.shadertoy.com/view/wdG3Wd
+// You can use a simple 2D grid
+// 0) each particle has has a diameter d > s * sqrt(2) / 2, where s is the size of the grid cell
+//      so two particles can't be in the same cell
+// 1) if d < s, then a particle cannot collide with another particle further than the neighboring cells
+
+// instead of storing velocity, you can store next position and correct the position depending on the collision
+// https://www.shadertoy.com/view/3lyyDw
+// verlet integration
+// https://matthias-research.github.io/pages/publications/posBasedDyn.pdf
+
+// for sorting: https://arxiv.org/pdf/1709.02520.pdf
+// for BVH: https://developer.nvidia.com/blog/thinking-parallel-part-iii-tree-construction-gpu/
+// sorted particles: https://www.shadertoy.com/view/XsjyRm
+
+// given energy consumption, life forms can impart momentum to the medium in which they live,
+// such that momentum is conserved.
+//
 
 use bevy::{
     core::{cast_slice, FloatOrd, Pod, Time, Zeroable},
@@ -176,7 +190,8 @@ fn setup(
     // let example = "debugger";
     // let example = "molecular_dynamics";
     // let example = "love_and_domination";
-    let example = "dancing_tree";
+    // let example = "dancing_tree";
+    let example = "life";
 
     let all_shader_handles: ShaderHandles =
         make_and_load_shaders2(example, &asset_server, st_res.include_debugger);
@@ -206,10 +221,11 @@ pub struct CommonUniform {
     pub i_mouse: Vec4,
     pub i_resolution: Vec2,
 
-    pub i_channel_time: Vec4,
-    pub i_channel_resolution: Vec4,
-    pub i_date: [i32; 4],
+    pub forces: Mat4,
 
+    // pub i_channel_time: Vec4,
+    // pub i_channel_resolution: Vec4,
+    // pub i_date: [i32; 4],
     pub changed_window_size: f32,
 }
 
@@ -222,6 +238,10 @@ impl CommonUniform {
     }
 }
 
+// pub struct QuadTreeMeta {
+//     buffer: Buffer,
+// }
+
 pub struct CommonUniformMeta {
     buffer: Buffer,
 }
@@ -232,6 +252,7 @@ pub struct Buffers {
     buffer_b: Buffer,
     buffer_c: Buffer,
     buffer_d: Buffer,
+    quad_tree_buffer: Buffer,
 }
 
 impl Buffers {
@@ -275,11 +296,19 @@ impl Buffers {
             mapped_at_creation: false,
         });
 
+        let quad_tree_buffer = render_device.create_buffer(&BufferDescriptor {
+            label,
+            size: pixels_capacity_bytes,
+            usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+
         Self {
             buffer_a,
             buffer_b,
             buffer_c,
             buffer_d,
+            quad_tree_buffer,
         }
     }
 
@@ -301,7 +330,8 @@ impl Buffers {
             "a" => &self.buffer_a,
             "b" => &self.buffer_b,
             "c" => &self.buffer_c,
-            _ => &self.buffer_d,
+            "d" => &self.buffer_d,
+            _ => &self.quad_tree_buffer,
         };
 
         BindGroupEntry {
@@ -453,12 +483,22 @@ impl Plugin for ShadertoyPlugin {
             mapped_at_creation: false,
         });
 
+        let quad_tree_buffer = render_device.create_buffer(&BufferDescriptor {
+            label: Some("quad tree buffer"),
+            size: CommonUniform::std140_size_static() as u64,
+            usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+
         let buffers = Buffers::new(&render_device.clone(), None, None);
         //
         render_app
             .insert_resource(CommonUniformMeta {
                 buffer: common_uniform_buffer,
             })
+            // .insert_resource(QuadTreeMeta {
+            //     buffer: quad_tree_buffer,
+            // })
             .insert_resource(buffers)
             .insert_resource(CommonUniform::default())
             .add_system_to_stage(RenderStage::Prepare, prepare_common_uniform_and_buffers)
@@ -540,6 +580,7 @@ impl ShadertoyPipelines {
                     Buffers::make_buffer_layout(2, buffer_min_binding_size),
                     Buffers::make_buffer_layout(3, buffer_min_binding_size),
                     Buffers::make_buffer_layout(4, buffer_min_binding_size),
+                    Buffers::make_buffer_layout(10, buffer_min_binding_size),
                 ],
             });
 
@@ -596,6 +637,13 @@ impl ShadertoyPipelines {
                         ty: BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
                     },
+                    // BindGroupLayoutEntry {
+                    //     binding: 10,
+                    //     visibility: ShaderStages::COMPUTE,
+                    //     ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    //     count: None,
+                    // },
+                    Buffers::make_buffer_layout(10, buffer_min_binding_size),
                 ],
             });
 
@@ -708,7 +756,7 @@ fn extract_main_image(
 
 fn queue_bind_group(
     mut commands: Commands,
-    mut pipelines: ResMut<ShadertoyPipelines>,
+    pipelines: ResMut<ShadertoyPipelines>,
 
     gpu_images: Res<RenderAssets<Image>>,
     shadertoy_textures: Res<ShadertoyTextures>,
@@ -718,6 +766,7 @@ fn queue_bind_group(
     all_shader_handles: Res<ShaderHandles>,
     common_uniform: ResMut<CommonUniform>,
     common_uniform_meta: ResMut<CommonUniformMeta>,
+    // quad_tree_meta: ResMut<QuadTreeMeta>,
     mut buffers: ResMut<Buffers>,
     mut change_buffer_size_res: ResMut<ChangeBufferSize>,
     mut render_graph: ResMut<RenderGraph>,
@@ -815,6 +864,11 @@ fn queue_bind_group(
                 binding: 9,
                 resource: BindingResource::Sampler(&rgba_noise_256_view.sampler),
             },
+            buffers.make_buffer_bind_group(10, buffer_size, "quad_tree"),
+            // BindGroupEntry {
+            //     binding: 10,
+            //     resource: quad_tree.buffer.as_entire_binding(),
+            // },
         ],
     });
 

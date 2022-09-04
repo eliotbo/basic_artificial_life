@@ -8,11 +8,12 @@ struct CommonUniform {
     iMouse: vec4<f32>;
     iResolution: vec2<f32>;
 
+    forces: mat4x4<f32>;
     
 
-    iChannelTime: vec4<f32>;
-    iChannelResolution: vec4<f32>;
-    iDate: vec4<i32>;
+    // iChannelTime: vec4<f32>;
+    // iChannelResolution: vec4<f32>;
+    // iDate: vec4<i32>;
 };
 
 struct PixelBuffer {

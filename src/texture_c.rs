@@ -58,6 +58,7 @@ pub fn queue_bind_group_c(
             buffers.make_buffer_bind_group(2, buffer_size, "b"),
             buffers.make_buffer_bind_group(3, buffer_size, "c"),
             buffers.make_buffer_bind_group(4, buffer_size, "d"),
+            buffers.make_buffer_bind_group(10, buffer_size, "quad_tree"),
         ],
     });
 

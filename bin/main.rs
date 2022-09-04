@@ -401,9 +401,10 @@ pub struct CommonUniform {
     pub i_mouse: Vec4,
     pub i_resolution: Vec2,
 
-    pub i_channel_time: Vec4,
-    pub i_channel_resolution: Vec4,
-    pub i_date: [i32; 4],
+    pub forces: Mat4,
+    // pub i_channel_time: Vec4,
+    // pub i_channel_resolution: Vec4,
+    // pub i_date: [i32; 4],
 }
 
 pub struct CommonUniformMeta {
