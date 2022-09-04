@@ -1,6 +1,7 @@
 use bevy::{
     prelude::*,
     render::{
+        extract_resource::ExtractResource,
         render_graph,
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
@@ -10,8 +11,8 @@ use bevy::{
 use std::borrow::Cow;
 
 use crate::{
-    Buffers, CanvasSize, CommonUniform, CommonUniformMeta, ShaderHandles, ShadertoyPipelines,
-    ShadertoyState, WORKGROUP_SIZE,
+    Buffers, CommonUniform, CommonUniformCrevice, CommonUniformMeta, ExtractedUniform,
+    ShaderHandles, ShadertoyCanvas, ShadertoyPipelines, ShadertoyState, WORKGROUP_SIZE,
 };
 
 struct TextureCBindGroup {
@@ -27,12 +28,16 @@ pub fn queue_bind_group_c(
     mut pipeline_cache: ResMut<PipelineCache>,
     all_shader_handles: Res<ShaderHandles>,
     common_uniform_meta: ResMut<CommonUniformMeta>,
-    common_uniform: Res<CommonUniform>,
+    common_uniform: Res<ExtractedUniform>,
     buffers: ResMut<Buffers>,
 ) {
     // buffe size is number_of_pixels * 4 (rgba) * 4 bytes (float)
+    // let buffer_size = buffers.buffer_size;
     let buffer_size =
-        common_uniform.i_resolution.x as u64 * common_uniform.i_resolution.y as u64 * 4 * 4;
+        common_uniform.0.i_resolution.x as u64 * common_uniform.0.i_resolution.y as u64 * 4 * 4;
+
+    // let buffer_size =
+    //     common_uniform.i_resolution.x as u64 * common_uniform.i_resolution.y as u64 * 4 * 4;
 
     let init_pipeline = pipeline_cache.queue_compute_pipeline(Buffers::make_pipeline_descriptor(
         &pipelines,
@@ -58,7 +63,7 @@ pub fn queue_bind_group_c(
             buffers.make_buffer_bind_group(2, buffer_size, "b"),
             buffers.make_buffer_bind_group(3, buffer_size, "c"),
             buffers.make_buffer_bind_group(4, buffer_size, "d"),
-            buffers.make_buffer_bind_group(10, buffer_size, "quad_tree"),
+            // buffers.make_buffer_bind_group(10, buffer_size, "quad_tree"),
         ],
     });
 
@@ -116,7 +121,7 @@ impl render_graph::Node for TextureCNode {
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
         let bind_group = world.resource::<TextureCBindGroup>();
-        let canvas_size = world.resource::<CanvasSize>();
+        let canvas_size = world.resource::<ShadertoyCanvas>();
 
         let texture_c_bind_group = &bind_group.texture_c_bind_group;
 
@@ -140,7 +145,7 @@ impl render_graph::Node for TextureCNode {
                     .get_compute_pipeline(init_pipeline_cache)
                     .unwrap();
                 pass.set_pipeline(init_pipeline);
-                pass.dispatch(
+                pass.dispatch_workgroups(
                     canvas_size.width / WORKGROUP_SIZE,
                     canvas_size.height / WORKGROUP_SIZE,
                     1,
@@ -152,7 +157,7 @@ impl render_graph::Node for TextureCNode {
                     .get_compute_pipeline(update_pipeline_cache)
                     .unwrap();
                 pass.set_pipeline(update_pipeline);
-                pass.dispatch(
+                pass.dispatch_workgroups(
                     canvas_size.width / WORKGROUP_SIZE,
                     canvas_size.height / WORKGROUP_SIZE,
                     1,
