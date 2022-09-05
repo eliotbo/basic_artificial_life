@@ -41,5 +41,6 @@ fn setup(
     let all_shader_handles: ShaderHandles =
         make_and_load_shaders2(example, &asset_server, st_res.include_debugger);
 
+    asset_server.watch_for_changes().unwrap();
     commands.insert_resource(all_shader_handles);
 }

@@ -1,5 +1,21 @@
+// struct PixelBuffer {
+//     pixels: array<vec4<f32>>,
+// };
+
+struct GridSlot {
+    pos: vec2<f32>,
+    id: u32,
+    mass: u32,
+    kind: u32,
+}
+
+struct GridSlotEncoded {
+    id: u32,
+    mass_kind_pos_encoded: u32,
+}
+
 struct PixelBuffer {
-    pixels: array<vec4<f32>>,
+    pixels: array<GridSlotEncoded>,
 };
 
 struct CommonUniform {
@@ -44,7 +60,6 @@ fn get_index( location: vec2<i32> ) -> i32 {
 
 
 
-let grid_size = vec2<f32>(800.0, 500.0);
 
 fn hash32(p: vec2<f32>) -> vec3<f32> {
     var p3: vec3<f32> = fract(vec3<f32>(p.xyx) * vec3<f32>(0.1031, 0.103, 0.0973));
@@ -52,39 +67,61 @@ fn hash32(p: vec2<f32>) -> vec3<f32> {
     return fract((p3.xxy + p3.yzz) * p3.zyx);
 } 
 
-fn hash41(p: f32) -> vec4<f32> {
-	var p4: vec4<f32> = fract(vec4<f32>(p) * vec4<f32>(0.1031, 0.103, 0.0973, 0.1099));
-	p4 = p4 + (dot(p4, p4.wzxy + 33.33));
-	return fract((p4.xxyz + p4.yzzw) * p4.zywx);
+
+// white noise
+fn noise2d(co: vec2<f32>) -> f32 {
+	return fract(sin(dot(co.xy, vec2<f32>(1., 73.))) * 43758.547);
 } 
 
-struct ParticleSlot {
-    occupied: bool,
-    mass: u32,
-    kind: u32,
-}
-
-fn decode(particle_u32: u32) -> ParticleSlot {
-    // let particle: ParticleSlot;
-    let occupied = (particle_u32 & 0x01u) == 1u;
-    let mass: u32 = u32((particle_u32 >> 1u) & 0xFFu);
-    let kind: u32 = ((particle_u32 >> 9u) & 0xFFu);
+fn hash2(p: vec2<f32>) -> vec2<f32> {
+	return fract(sin(vec2<f32>(dot(p, vec2<f32>(127.1, 311.7)), dot(p, vec2<f32>(269.5, 183.3)))) * 43758.547);
+} 
 
 
-    let p = ParticleSlot( occupied,  mass,  kind);
+
+
+
+
+let u8max = 255.0;
+
+fn decode(grid_slot_encoded: GridSlotEncoded) -> GridSlot {
+
+    let id = grid_slot_encoded.id;
+
+    let encoded = grid_slot_encoded.mass_kind_pos_encoded;
+
+    let mass: u32 = (encoded >> 0u) & 0xFFu;
+    let kind: u32 = (encoded >> 8u) & 0xFFu;
+
+    let posx = (encoded >> 16u) & 0xFFu ;
+    let posy = (encoded >> 24u) & 0xFFu ;
+
+    let pos = vec2<f32>(f32(posx) / u8max, f32(posy) / u8max);
+
+
+    let p = GridSlot( pos, id, mass,  kind);
 
     return p;
 }
 
-fn encode(particle: ParticleSlot) -> u32 {
+fn encode(slot: GridSlot) -> GridSlotEncoded {
+
+    if (slot.mass == 0u) {
+        return GridSlotEncoded(0u, 0u);
+    }
+
     var encoded: u32 = 0u;
 
-    if (particle.occupied) {
-        encoded |= 1u;
-    }
-    encoded |= (particle.mass & 0xFFu) << 1u;
-    encoded |= (particle.kind & 0xFFu) << 9u;
-    return encoded;
+    encoded |= (slot.mass & 0xFFu) << 0u;
+    encoded |= (slot.kind & 0xFFu) << 8u;
+
+    let x = u32(slot.pos.x * u8max);
+    let y = u32(slot.pos.y * u8max);
+
+    encoded |= (x & 0xFFu) << 16u;
+    encoded |= (y & 0xFFu) << 24u;
+
+    return GridSlotEncoded( slot.id, encoded);
 }
 
 

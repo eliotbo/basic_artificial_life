@@ -66,8 +66,10 @@ mod texture_d;
 use texture_d::*;
 
 pub const WORKGROUP_SIZE: u32 = 8;
-pub const NUM_PARTICLES_X: u32 = 240;
-pub const NUM_PARTICLES_Y: u32 = 150;
+// pub const NUM_PARTICLES_X: u32 = 240;
+// pub const NUM_PARTICLES_Y: u32 = 150;
+pub const NUM_PARTICLES_X: u32 = 120;
+pub const NUM_PARTICLES_Y: u32 = 75;
 pub const NUM_PARTICLES: usize = (NUM_PARTICLES_X * NUM_PARTICLES_Y) as usize;
 
 pub const WINDOW_WIDTH: f32 = 960.;
@@ -189,21 +191,21 @@ fn setup(
     // commands.insert_resource(all_shader_handles);
 }
 
-pub fn make_and_load_shaders(example: &str, asset_server: &Res<AssetServer>) -> ShaderHandles {
-    let image_shader_handle = asset_server.load(&format!("./shaders/{}/image.wgsl", example));
-    let texture_a_shader = asset_server.load(&format!("./shaders/{}/buffer_a.wgsl", example));
-    let texture_b_shader = asset_server.load(&format!("./shaders/{}/buffer_b.wgsl", example));
-    let texture_c_shader = asset_server.load(&format!("./shaders/{}/buffer_c.wgsl", example));
-    let texture_d_shader = asset_server.load(&format!("./shaders/{}/buffer_d.wgsl", example));
+// pub fn make_and_load_shaders(example: &str, asset_server: &Res<AssetServer>) -> ShaderHandles {
+//     let image_shader_handle = asset_server.load(&format!("./shaders/{}/image.wgsl", example));
+//     let texture_a_shader = asset_server.load(&format!("./shaders/{}/buffer_a.wgsl", example));
+//     let texture_b_shader = asset_server.load(&format!("./shaders/{}/buffer_b.wgsl", example));
+//     let texture_c_shader = asset_server.load(&format!("./shaders/{}/buffer_c.wgsl", example));
+//     let texture_d_shader = asset_server.load(&format!("./shaders/{}/buffer_d.wgsl", example));
 
-    ShaderHandles {
-        image_shader: image_shader_handle,
-        texture_a_shader,
-        texture_b_shader,
-        texture_c_shader,
-        texture_d_shader,
-    }
-}
+//     ShaderHandles {
+//         image_shader: image_shader_handle,
+//         texture_a_shader,
+//         texture_b_shader,
+//         texture_c_shader,
+//         texture_d_shader,
+//     }
+// }
 
 pub fn make_and_load_shaders2(
     example: &str,
@@ -287,7 +289,6 @@ fn format_and_save_shader(example: &str, buffer_type: &str, include_debugger: bo
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct GridSlot {
-    // pub occupied: bool,
     pub position: Vec2,
     pub id: u32,
     pub mass: u8,
@@ -295,42 +296,65 @@ pub struct GridSlot {
     // still space for two other u8s
 }
 
-impl Into<GridSlotMeta> for GridSlot {
-    fn into(self) -> GridSlotMeta {
-        let encoded = (self.kind as u32) << 8 | (self.mass as u32) << 0;
-
-        GridSlotMeta {
-            mass_kind_encoded: encoded,
-            id: self.id,
-            // position could be encoded into two u8s since a particle is inside a grid slot, whose
-            // position is known
-            pos: crevice::std140::Vec2 {
-                x: self.position.x,
-                y: self.position.y,
-            },
-        }
-    }
-}
-
 // encoded version of ParticleSlot, such that it can be transferred to the GPU
 #[derive(Clone, Copy, AsStd140)]
-pub struct GridSlotMeta {
-    pub pos: crevice::std140::Vec2,
+pub struct GridSlotEncoded {
+    // pub pos: crevice::std140::Vec2,
     pub id: u32,
     pub mass_kind_encoded: u32,
 }
 
-impl Default for GridSlotMeta {
-    fn default() -> Self {
-        Self {
-            mass_kind_encoded: 0,
-            id: 0,
-            pos: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
+impl Into<GridSlot> for GridSlotEncoded {
+    fn into(self) -> GridSlot {
+        //
+        //
+        // a mass of 0 means that the grid slot is empty
+        let mass = ((self.mass_kind_encoded >> 0) & 0xFF) as u8;
+        let kind = ((self.mass_kind_encoded >> 8) & 0xFF) as u8;
+
+        let posx = ((self.mass_kind_encoded >> 16) & 0xFF) as u8;
+        let posy = ((self.mass_kind_encoded >> 24) & 0xFF) as u8;
+
+        // convert posx and posy to a vec2
+        let pos = Vec2::new(posx as f32 / u8::MAX as f32, posy as f32 / u8::MAX as f32);
+
+        GridSlot {
+            position: pos,
+            id: self.id,
+            mass,
+            kind,
         }
     }
 }
 
-impl GridSlotMeta {
+impl Into<GridSlotEncoded> for GridSlot {
+    fn into(self) -> GridSlotEncoded {
+        let mut encoded = (self.kind as u32) << 8 | (self.mass as u32) << 0;
+
+        // encode the position as two u8s
+        let x = (self.position.x * u8::MAX as f32) as u8;
+        let y = (self.position.y * u8::MAX as f32) as u8;
+
+        encoded |= (x as u32) << 16 | (y as u32) << 24;
+
+        GridSlotEncoded {
+            id: self.id,
+            mass_kind_encoded: encoded,
+        }
+    }
+}
+
+impl Default for GridSlotEncoded {
+    fn default() -> Self {
+        Self {
+            mass_kind_encoded: 0,
+            id: 0,
+            // pos: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
+        }
+    }
+}
+
+impl GridSlotEncoded {
     pub fn get_size_in_bytes() -> BufferAddress {
         let dumdum = Self::default();
 
@@ -339,23 +363,6 @@ impl GridSlotMeta {
         let bytes_size: BufferAddress = (particle_dummy.as_bytes().len() * NUM_PARTICLES) as u64;
 
         return bytes_size;
-    }
-}
-
-impl Into<GridSlot> for GridSlotMeta {
-    fn into(self) -> GridSlot {
-        //
-        //
-        // a mass of 0 means that the grid slot is empty
-        let mass = ((self.mass_kind_encoded >> 0) & 0xFF) as u8;
-        let kind = ((self.mass_kind_encoded >> 8) & 0xFF) as u8;
-
-        GridSlot {
-            position: Vec2::new(self.pos.x, self.pos.y),
-            id: self.id,
-            mass,
-            kind,
-        }
     }
 }
 
@@ -369,7 +376,7 @@ fn test_particle_slot_encoding() {
         kind: 69,
     };
 
-    let slot_meta: GridSlotMeta = slot.into();
+    let slot_meta: GridSlotEncoded = slot.into();
     let slot_decoded: GridSlot = slot_meta.into();
 
     assert_eq!(slot, slot_decoded);
@@ -395,7 +402,7 @@ impl Buffers {
         // let mut pixels_capacity_bytes: BufferAddress =
         //     WINDOW_WIDTH as u64 * WINDOW_HEIGHT as u64 * 4 * 4;
 
-        let capacity_bytes: BufferAddress = GridSlotMeta::get_size_in_bytes();
+        let capacity_bytes: BufferAddress = GridSlotEncoded::get_size_in_bytes();
 
         // if let Some(resolution) = window_size {
         //     pixels_capacity_bytes = resolution.x as u64 * resolution.y as u64 * 4 * 4;
@@ -447,7 +454,7 @@ impl Buffers {
     }
 
     fn make_buffer_layout(binding: u32) -> BindGroupLayoutEntry {
-        let capacity_bytes: BufferAddress = GridSlotMeta::get_size_in_bytes();
+        let capacity_bytes: BufferAddress = GridSlotEncoded::get_size_in_bytes();
 
         BindGroupLayoutEntry {
             binding,
@@ -462,7 +469,7 @@ impl Buffers {
     }
 
     fn make_buffer_bind_group(&self, binding: u32, name: &str) -> BindGroupEntry {
-        let capacity_bytes: BufferAddress = GridSlotMeta::get_size_in_bytes();
+        let capacity_bytes: BufferAddress = GridSlotEncoded::get_size_in_bytes();
 
         let buffer = match name {
             "a" => &self.buffer_a,
@@ -674,8 +681,8 @@ fn update_common_uniform(
     // update resolution
     changed_window_size.0 = false;
     for _window_resize in window_resize_event.iter() {
-        // canvas_size.width = common_uniform.i_resolution.x as u32;
-        // canvas_size.height = common_uniform.i_resolution.y as u32;
+        // canvas.width = common_uniform.i_resolution.x as u32;
+        // canvas.height = common_uniform.i_resolution.y as u32;
 
         // common_uniform.i_resolution.x = (window_resize.width * (1. - canvas.borders)).floor();
         // common_uniform.i_resolution.y = (window_resize.height * (1. - canvas.borders)).floor();
@@ -1365,7 +1372,7 @@ impl render_graph::Node for MainNode {
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
         let bind_group = world.resource::<MainImageBindGroup>();
-        // let canvas_size = world.resource::<ShadertoyCanvas>();
+        let canvas_size = world.resource::<ShadertoyCanvas>();
 
         let init_pipeline_cache = bind_group.init_pipeline;
         let update_pipeline_cache = bind_group.update_pipeline;
@@ -1390,10 +1397,10 @@ impl render_graph::Node for MainNode {
                     .unwrap();
                 pass.set_pipeline(init_pipeline);
                 pass.dispatch_workgroups(
-                    // canvas_size.width / WORKGROUP_SIZE,
-                    NUM_PARTICLES_X as u32 / WORKGROUP_SIZE,
-                    // canvas_size.height / WORKGROUP_SIZE,
-                    NUM_PARTICLES_Y as u32 / WORKGROUP_SIZE,
+                    canvas_size.width / WORKGROUP_SIZE,
+                    // NUM_PARTICLES_X as u32 / WORKGROUP_SIZE,
+                    canvas_size.height / WORKGROUP_SIZE,
+                    // NUM_PARTICLES_Y as u32 / WORKGROUP_SIZE,
                     1,
                 );
             }
@@ -1404,10 +1411,10 @@ impl render_graph::Node for MainNode {
                     .unwrap();
                 pass.set_pipeline(update_pipeline);
                 pass.dispatch_workgroups(
-                    // canvas_size.width / WORKGROUP_SIZE,
-                    NUM_PARTICLES_X as u32 / WORKGROUP_SIZE,
-                    // canvas_size.height / WORKGROUP_SIZE,
-                    NUM_PARTICLES_Y as u32 / WORKGROUP_SIZE,
+                    canvas_size.width / WORKGROUP_SIZE,
+                    // NUM_PARTICLES_X as u32 / WORKGROUP_SIZE,
+                    canvas_size.height / WORKGROUP_SIZE,
+                    // NUM_PARTICLES_Y as u32 / WORKGROUP_SIZE,
                     1,
                 );
             }

@@ -1,6 +1,22 @@
 
+// struct PixelBuffer {
+//     pixels: array<vec4<f32>>,
+// };
+
+struct GridSlot {
+    pos: vec2<f32>,
+    id: u32,
+    mass: u32,
+    kind: u32,
+}
+
+struct GridSlotEncoded {
+    id: u32,
+    mass_kind_pos_encoded: u32,
+}
+
 struct PixelBuffer {
-    pixels: array<vec4<f32>>,
+    pixels: array<GridSlotEncoded>,
 };
 
 struct CommonUniform {
@@ -69,7 +85,6 @@ var blue_noise_texture_sampler: sampler;
 
 
 
-let grid_size = vec2<f32>(800.0, 500.0);
 
 fn hash32(p: vec2<f32>) -> vec3<f32> {
     var p3: vec3<f32> = fract(vec3<f32>(p.xyx) * vec3<f32>(0.1031, 0.103, 0.0973));
@@ -77,47 +92,156 @@ fn hash32(p: vec2<f32>) -> vec3<f32> {
     return fract((p3.xxy + p3.yzz) * p3.zyx);
 } 
 
-fn hash41(p: f32) -> vec4<f32> {
-	var p4: vec4<f32> = fract(vec4<f32>(p) * vec4<f32>(0.1031, 0.103, 0.0973, 0.1099));
-	p4 = p4 + (dot(p4, p4.wzxy + 33.33));
-	return fract((p4.xxyz + p4.yzzw) * p4.zywx);
+
+// white noise
+fn noise2d(co: vec2<f32>) -> f32 {
+	return fract(sin(dot(co.xy, vec2<f32>(1., 73.))) * 43758.547);
 } 
 
-struct ParticleSlot {
-    occupied: bool,
-    mass: u32,
-    kind: u32,
-}
-
-fn decode(particle_u32: u32) -> ParticleSlot {
-    // let particle: ParticleSlot;
-    let occupied = (particle_u32 & 0x01u) == 1u;
-    let mass: u32 = u32((particle_u32 >> 1u) & 0xFFu);
-    let kind: u32 = ((particle_u32 >> 9u) & 0xFFu);
+fn hash2(p: vec2<f32>) -> vec2<f32> {
+	return fract(sin(vec2<f32>(dot(p, vec2<f32>(127.1, 311.7)), dot(p, vec2<f32>(269.5, 183.3)))) * 43758.547);
+} 
 
 
-    let p = ParticleSlot( occupied,  mass,  kind);
+
+
+
+
+let u8max = 255.0;
+
+fn decode(grid_slot_encoded: GridSlotEncoded) -> GridSlot {
+
+    let id = grid_slot_encoded.id;
+
+    let encoded = grid_slot_encoded.mass_kind_pos_encoded;
+
+    let mass: u32 = (encoded >> 0u) & 0xFFu;
+    let kind: u32 = (encoded >> 8u) & 0xFFu;
+
+    let posx = (encoded >> 16u) & 0xFFu ;
+    let posy = (encoded >> 24u) & 0xFFu ;
+
+    let pos = vec2<f32>(f32(posx) / u8max, f32(posy) / u8max);
+
+
+    let p = GridSlot( pos, id, mass,  kind);
 
     return p;
 }
 
-fn encode(particle: ParticleSlot) -> u32 {
+fn encode(slot: GridSlot) -> GridSlotEncoded {
+
+    if (slot.mass == 0u) {
+        return GridSlotEncoded(0u, 0u);
+    }
+
     var encoded: u32 = 0u;
 
-    if (particle.occupied) {
-        encoded |= 1u;
-    }
-    encoded |= (particle.mass & 0xFFu) << 1u;
-    encoded |= (particle.kind & 0xFFu) << 9u;
-    return encoded;
+    encoded |= (slot.mass & 0xFFu) << 0u;
+    encoded |= (slot.kind & 0xFFu) << 8u;
+
+    let x = u32(slot.pos.x * u8max);
+    let y = u32(slot.pos.y * u8max);
+
+    encoded |= (x & 0xFFu) << 16u;
+    encoded |= (y & 0xFFu) << 24u;
+
+    return GridSlotEncoded( slot.id, encoded);
 }
 
+
+
+// sdf of a circle
+fn sdCircle(p: vec2<f32>, c: vec2<f32>, r: f32) -> f32 {
+  let d = length(p - c);
+  return d - r;
+}
+
+let red = vec4<f32>(1.0, 0.0, 0.0, 1.0);
+let green = vec4<f32>(0.0, 1.0, 0.0, 1.0);
+let blue = vec4<f32>(0.0, 0.0, 1.0, 1.0);
+let yellow = vec4<f32>(1.0, 1.0, 0.0, 1.0);
+let cyan = vec4<f32>(0.0, 1.0, 1.0, 1.0);
+
+fn ball_sdf(
+    color: vec4<f32>, 
+    location: vec2<i32>, 
+    grid_loc: vec2<i32>, 
+    slot: GridSlot,
+    coef: f32
+) -> f32 {
+
+    let relative_ball_position = slot.pos;
+
+    let absolute_ball_position = 
+        (vec2<f32>(grid_loc) ) * coef 
+        + relative_ball_position * coef;
+
+    let ball_radius = coef/4.2;
+    let s = sdCircle(vec2<f32>(location), absolute_ball_position, ball_radius);
+
+    return s;
+
+   
+}
 
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
     let buffer_location_index = get_index(vec2<i32>(invocation_id.xy));
 
-    var O: vec4<f32> =   buffer_a.pixels[get_index(location)] ;
-    textureStore(texture, location, O);
+     
+
+    let expansion_coefficient = uni.iResolution.x / f32(uni.grid_size.x);
+    let grid_loc = vec2<i32>(vec2<f32>(location) / expansion_coefficient);
+
+
+
+    // var color = vec4<f32>(0.25, 0.8, 0.8, 1.0);
+    var color = vec4<f32>(0.1, 0.2, 0.3, 1.0);
+
+    let slot_encoded: GridSlotEncoded =   buffer_a.pixels[get_index(grid_loc)] ;
+    let slot: GridSlot = decode(slot_encoded);
+
+
+
+    for (var i = -1; i < 2; i=i+1) {
+        for (var j = -1; j < 2; j=j+1) {
+            
+
+            let neighbor_loc = grid_loc + vec2<i32>(i, j);
+            let neighbor_slot_encoded: GridSlotEncoded = buffer_a.pixels[get_index(neighbor_loc)];
+            let neighbor_slot: GridSlot = decode(neighbor_slot_encoded);
+
+            // let neighbor_loc2 = grid_loc - vec2<i32>(i, j);
+
+
+            if (neighbor_slot.mass > 0u) {
+                // let s = ball_sdf(red, location, grid_loc, slot, expansion_coefficient);
+                let relative_ball_position = neighbor_slot.pos;
+
+                let absolute_ball_position = 
+                    (vec2<f32>(neighbor_loc) ) * expansion_coefficient 
+                    + relative_ball_position * expansion_coefficient;
+
+                let ball_radius = expansion_coefficient/4.2;
+                let s = sdCircle(vec2<f32>(location), absolute_ball_position, ball_radius);
+
+                var ball_color = red;
+                
+                switch (neighbor_slot.kind) {
+                    case 0u { ball_color = red; }
+                    case 1u { ball_color = green; }
+                    case 2u { ball_color = blue; }
+                    case 3u { ball_color = yellow; }
+                    default { ball_color = cyan; }
+
+                }
+
+                color = mix(color, ball_color, 1.0 - smoothstep(-0.0, 1.0, s));
+            }
+        }
+    }
+
+    textureStore(texture, location, color);
 }

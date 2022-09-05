@@ -9,7 +9,7 @@ use bevy::{
 
 use crate::{
     Buffers, CommonUniformMeta, ShaderHandles, ShadertoyCanvas, ShadertoyPipelines, ShadertoyState,
-    WORKGROUP_SIZE,
+    NUM_PARTICLES_X, NUM_PARTICLES_Y, WORKGROUP_SIZE,
 };
 
 struct TextureDBindGroup {
@@ -148,8 +148,10 @@ impl render_graph::Node for TextureDNode {
                     .unwrap();
                 pass.set_pipeline(init_pipeline);
                 pass.dispatch_workgroups(
-                    canvas_size.width / WORKGROUP_SIZE,
-                    canvas_size.height / WORKGROUP_SIZE,
+                    NUM_PARTICLES_X as u32 / WORKGROUP_SIZE,
+                    NUM_PARTICLES_Y as u32 / WORKGROUP_SIZE,
+                    // canvas_size.width / WORKGROUP_SIZE,
+                    // canvas_size.height / WORKGROUP_SIZE,
                     1,
                 );
             }
@@ -160,8 +162,10 @@ impl render_graph::Node for TextureDNode {
                     .unwrap();
                 pass.set_pipeline(update_pipeline);
                 pass.dispatch_workgroups(
-                    canvas_size.width / WORKGROUP_SIZE,
-                    canvas_size.height / WORKGROUP_SIZE,
+                    // canvas_size.width / WORKGROUP_SIZE,
+                    // canvas_size.height / WORKGROUP_SIZE,
+                    NUM_PARTICLES_X as u32 / WORKGROUP_SIZE,
+                    NUM_PARTICLES_Y as u32 / WORKGROUP_SIZE,
                     1,
                 );
             }

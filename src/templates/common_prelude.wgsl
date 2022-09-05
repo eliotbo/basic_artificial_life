@@ -1,5 +1,21 @@
+// struct PixelBuffer {
+//     pixels: array<vec4<f32>>,
+// };
+
+struct GridSlot {
+    pos: vec2<f32>,
+    id: u32,
+    mass: u32,
+    kind: u32,
+}
+
+struct GridSlotEncoded {
+    id: u32,
+    mass_kind_pos_encoded: u32,
+}
+
 struct PixelBuffer {
-    pixels: array<vec4<f32>>,
+    pixels: array<GridSlotEncoded>,
 };
 
 struct CommonUniform {
