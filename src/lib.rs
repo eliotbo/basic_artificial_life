@@ -1,7 +1,21 @@
-//! Notes:
-//! wglsl error messages do not display the correct line numbers when comparing to the
-//! buffer and image scripts because the shader that is read by the GPU includes
-//! the uniform and the bindings, which add about 50 lines of code
+// You actually don't need a quadtree here: https://www.shadertoy.com/view/wdG3Wd
+// You can use a simple 2D grid
+// 0) each particle has has a diameter d > s * sqrt(2) / 2, where s is the size of the grid cell
+//      so two particles can't be in the same cell
+// 1) if d < s, then a particle cannot collide with another particle further than the neighboring cells
+
+// instead of storing velocity, you can store next position and correct the position depending on the collision
+// https://www.shadertoy.com/view/3lyyDw
+// verlet integration
+// https://matthias-research.github.io/pages/publications/posBasedDyn.pdf
+
+// for sorting: https://arxiv.org/pdf/1709.02520.pdf
+// for BVH: https://developer.nvidia.com/blog/thinking-parallel-part-iii-tree-construction-gpu/
+// sorted particles: https://www.shadertoy.com/view/XsjyRm
+
+// given energy consumption, life forms can impart momentum to the medium in which they live,
+// such that momentum is conserved.
+//
 
 use bevy::{
     // core::{Pod, Zeroable},
@@ -32,6 +46,7 @@ use bevy::{
 };
 
 use crevice::std140::AsStd140;
+// use crevice::std430::AsStd430;
 use std::{borrow::Cow, num::NonZeroU64};
 
 use bevy::{app::ScheduleRunnerSettings, utils::Duration};
@@ -51,12 +66,14 @@ mod texture_d;
 use texture_d::*;
 
 pub const WORKGROUP_SIZE: u32 = 8;
-pub const NUM_PARTICLES: u32 = 256;
+pub const NUM_PARTICLES_X: u32 = 240;
+pub const NUM_PARTICLES_Y: u32 = 150;
+pub const NUM_PARTICLES: usize = (NUM_PARTICLES_X * NUM_PARTICLES_Y) as usize;
 
 pub const WINDOW_WIDTH: f32 = 960.;
 pub const WINDOW_HEIGHT: f32 = 600.;
 
-pub const UNIFORM_NUM_SINGLES: u64 = 28;
+pub const UNIFORM_NUM_SINGLES: u64 = 32;
 // pub const BORDERS: f32 = 1.0;
 
 #[derive(Clone, ExtractResource, Debug)]
@@ -148,98 +165,6 @@ fn setup(
     // wait for the textures to load
     let ten_millis = std::time::Duration::from_millis(100);
     std::thread::sleep(ten_millis);
-
-    // //
-    // //
-    // //
-    // // Texture A: equivalent of Buffer A in Shadertoy
-    // let mut texture_a = Image::new_fill(
-    //     Extent3d {
-    //         width: canvas.width,
-    //         height: canvas.height,
-    //         depth_or_array_layers: 1,
-    //     },
-    //     TextureDimension::D2,
-    //     // &[255, 255, 255, 255],
-    //     &[0, 0, 0, 0],
-    //     TextureFormat::Rgba32Float,
-    // );
-    // texture_a.texture_descriptor.usage =
-    //     TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
-
-    // let texture_a = images.add(texture_a);
-
-    // commands.insert_resource(TextureA(texture_a));
-
-    // //
-    // //
-    // //
-    // // Texture B: equivalent of Buffer B in Shadertoy
-    // let mut texture_b = Image::new_fill(
-    //     Extent3d {
-    //         width: canvas.width,
-    //         height: canvas.height,
-    //         depth_or_array_layers: 1,
-    //     },
-    //     TextureDimension::D2,
-    //     // &[255, 255, 255, 255],
-    //     &[0, 0, 0, 0],
-    //     TextureFormat::Rgba32Float,
-    // );
-    // texture_b.texture_descriptor.usage =
-    //     TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
-
-    // let texture_b = images.add(texture_b);
-
-    // commands.insert_resource(TextureB(texture_b));
-
-    // //
-    // //
-    // //
-    // // Texture C: equivalent of Buffer C in Shadertoy
-    // let mut texture_c = Image::new_fill(
-    //     Extent3d {
-    //         width: canvas.width,
-    //         height: canvas.height,
-    //         depth_or_array_layers: 1,
-    //     },
-    //     TextureDimension::D2,
-    //     // &[255, 255, 255, 255],
-    //     &[0, 0, 0, 0],
-    //     TextureFormat::Rgba32Float,
-    // );
-    // texture_c.texture_descriptor.usage =
-    //     TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
-
-    // let texture_c = images.add(texture_c);
-
-    // commands.insert_resource(TextureC(texture_c));
-
-    // //
-    // //
-    // //
-    // // Texture D: equivalent of Buffer D in Shadertoy
-    // let mut texture_d = Image::new_fill(
-    //     Extent3d {
-    //         width: canvas.width,
-    //         height: canvas.height,
-    //         depth_or_array_layers: 1,
-    //     },
-    //     TextureDimension::D2,
-    //     // &[255, 255, 255, 255],
-    //     &[0, 0, 0, 0],
-    //     TextureFormat::Rgba32Float,
-    // );
-    // texture_d.texture_descriptor.usage =
-    //     TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
-
-    // let texture_d = images.add(texture_d);
-
-    // commands.insert_resource(TextureD(texture_d));
-
-    // TODO
-    // rain: https://www.shadertoy.com/view/wdGSzw
-    // fix clouds
 
     // // let example = "clouds";
     // // let example = "minimal";
@@ -348,24 +273,6 @@ fn format_and_save_shader(example: &str, buffer_type: &str, include_debugger: bo
     fs::write(path, shader_content).expect("Unable to write file");
 }
 
-// fn import_shader(
-//     shader_skeleton: &str,
-//     shader_handle_untyped: HandleUntyped,
-//     shaders: &mut Assets<Shader>,
-//     shader_core_script: &str,
-//     signature: &str,
-// ) -> Handle<Shader> {
-//     //
-//     // insert common code in every shader
-//     let shader_prelude =
-//     let mut image_source = shader_skeleton.replace("{{COMMON}}", &COMMON);
-//     image_source = image_source.replace(signature, shader_core_script);
-
-//     let image_shader = Shader::from_wgsl(Cow::from(image_source));
-//     shaders.set_untracked(shader_handle_untyped.clone(), image_shader.clone());
-//     shader_handle_untyped.typed()
-// }
-
 // Copied from Shadertoy.com :
 // uniform vec3      iResolution;           // viewport resolution (in pixels)
 // uniform float     iTime;                 // shader playback time (in seconds)
@@ -378,6 +285,96 @@ fn format_and_save_shader(example: &str, buffer_type: &str, include_debugger: bo
 // uniform vec4      iDate;                 // (year, month, day, time in seconds)
 // uniform float     iSampleRate;           // sound sample rate (i.e., 44100)
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct GridSlot {
+    // pub occupied: bool,
+    pub position: Vec2,
+    pub id: u32,
+    pub mass: u8,
+    pub kind: u8,
+    // still space for two other u8s
+}
+
+impl Into<GridSlotMeta> for GridSlot {
+    fn into(self) -> GridSlotMeta {
+        let encoded = (self.kind as u32) << 8 | (self.mass as u32) << 0;
+
+        GridSlotMeta {
+            mass_kind_encoded: encoded,
+            id: self.id,
+            // position could be encoded into two u8s since a particle is inside a grid slot, whose
+            // position is known
+            pos: crevice::std140::Vec2 {
+                x: self.position.x,
+                y: self.position.y,
+            },
+        }
+    }
+}
+
+// encoded version of ParticleSlot, such that it can be transferred to the GPU
+#[derive(Clone, Copy, AsStd140)]
+pub struct GridSlotMeta {
+    pub pos: crevice::std140::Vec2,
+    pub id: u32,
+    pub mass_kind_encoded: u32,
+}
+
+impl Default for GridSlotMeta {
+    fn default() -> Self {
+        Self {
+            mass_kind_encoded: 0,
+            id: 0,
+            pos: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
+        }
+    }
+}
+
+impl GridSlotMeta {
+    pub fn get_size_in_bytes() -> BufferAddress {
+        let dumdum = Self::default();
+
+        let particle_dummy = dumdum.as_std140();
+
+        let bytes_size: BufferAddress = (particle_dummy.as_bytes().len() * NUM_PARTICLES) as u64;
+
+        return bytes_size;
+    }
+}
+
+impl Into<GridSlot> for GridSlotMeta {
+    fn into(self) -> GridSlot {
+        //
+        //
+        // a mass of 0 means that the grid slot is empty
+        let mass = ((self.mass_kind_encoded >> 0) & 0xFF) as u8;
+        let kind = ((self.mass_kind_encoded >> 8) & 0xFF) as u8;
+
+        GridSlot {
+            position: Vec2::new(self.pos.x, self.pos.y),
+            id: self.id,
+            mass,
+            kind,
+        }
+    }
+}
+
+#[test]
+fn test_particle_slot_encoding() {
+    let slot = GridSlot {
+        // occupied: false,
+        position: Vec2::new(0.3, 5.6),
+        id: 1654987,
+        mass: 15,
+        kind: 69,
+    };
+
+    let slot_meta: GridSlotMeta = slot.into();
+    let slot_decoded: GridSlot = slot_meta.into();
+
+    assert_eq!(slot, slot_decoded);
+}
+
 pub struct Buffers {
     // buffer_a: BufferVec<BufferA>,
     // buffer_size: u64,
@@ -385,88 +382,95 @@ pub struct Buffers {
     buffer_b: Buffer,
     buffer_c: Buffer,
     buffer_d: Buffer,
-    quad_tree_buffer: Buffer,
+    // quad_tree_buffer: Buffer,
 }
 
 impl Buffers {
     pub fn new(
         render_device: &RenderDevice,
         label: Option<&str>,
-        window_size: Option<Vec2>,
+        // window_size: Option<Vec2>,
     ) -> Self {
-        // TODO: change this so it reads actual window size from example
-        let mut pixels_capacity_bytes: BufferAddress =
-            WINDOW_WIDTH as u64 * WINDOW_HEIGHT as u64 * 4 * 4;
+        // // TODO: change this so it reads actual window size from example
+        // let mut pixels_capacity_bytes: BufferAddress =
+        //     WINDOW_WIDTH as u64 * WINDOW_HEIGHT as u64 * 4 * 4;
 
-        if let Some(resolution) = window_size {
-            pixels_capacity_bytes = resolution.x as u64 * resolution.y as u64 * 4 * 4;
-        }
+        let capacity_bytes: BufferAddress = GridSlotMeta::get_size_in_bytes();
+
+        // if let Some(resolution) = window_size {
+        //     pixels_capacity_bytes = resolution.x as u64 * resolution.y as u64 * 4 * 4;
+        // }
 
         let buffer_a = render_device.create_buffer(&BufferDescriptor {
             label,
-            size: pixels_capacity_bytes,
+            size: capacity_bytes,
             usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let buffer_b = render_device.create_buffer(&BufferDescriptor {
             label,
-            size: pixels_capacity_bytes,
+            size: capacity_bytes,
             usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let buffer_c = render_device.create_buffer(&BufferDescriptor {
             label,
-            size: pixels_capacity_bytes,
+            size: capacity_bytes,
             usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let buffer_d = render_device.create_buffer(&BufferDescriptor {
             label,
-            size: pixels_capacity_bytes,
+            size: capacity_bytes,
             usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
-        let quad_tree_buffer = render_device.create_buffer(&BufferDescriptor {
-            label,
-            size: pixels_capacity_bytes,
-            usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
+        // let quad_tree_buffer = render_device.create_buffer(&BufferDescriptor {
+        //     label,
+        //     size: capacity_bytes,
+        //     usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+        //     mapped_at_creation: false,
+        // });
 
         Self {
             buffer_a,
             buffer_b,
             buffer_c,
             buffer_d,
-            quad_tree_buffer,
+            // quad_tree_buffer,
             // buffer_size: pixels_capacity_bytes,
         }
     }
 
-    fn make_buffer_layout(binding: u32, size: u64) -> BindGroupLayoutEntry {
+    fn make_buffer_layout(binding: u32) -> BindGroupLayoutEntry {
+        let capacity_bytes: BufferAddress = GridSlotMeta::get_size_in_bytes();
+
         BindGroupLayoutEntry {
             binding,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: false },
                 has_dynamic_offset: false,
-                min_binding_size: BufferSize::new(size),
+                min_binding_size: BufferSize::new(capacity_bytes),
             },
             count: None,
         }
     }
 
-    fn make_buffer_bind_group(&self, binding: u32, buffer_size: u64, name: &str) -> BindGroupEntry {
+    fn make_buffer_bind_group(&self, binding: u32, name: &str) -> BindGroupEntry {
+        let capacity_bytes: BufferAddress = GridSlotMeta::get_size_in_bytes();
+
         let buffer = match name {
             "a" => &self.buffer_a,
             "b" => &self.buffer_b,
             "c" => &self.buffer_c,
             "d" => &self.buffer_d,
-            _ => &self.quad_tree_buffer,
+            _ => panic!("Invalid buffer name"),
+            // _ => &self.quad_tree_buffer,
         };
 
         BindGroupEntry {
@@ -474,7 +478,7 @@ impl Buffers {
             resource: BindingResource::Buffer(BufferBinding {
                 buffer,
                 offset: 0,
-                size: Some(NonZeroU64::new(buffer_size).unwrap()),
+                size: Some(NonZeroU64::new(capacity_bytes).unwrap()),
             }),
         }
     }
@@ -510,6 +514,8 @@ pub struct CommonUniform {
     pub i_mouse: Vec4,
 
     pub forces: Mat4,
+
+    pub grid_size: UVec2,
     // pub i_channel_time: Vec4,
     // pub i_channel_resolution: Vec4,
     // pub i_date: Vec4,
@@ -518,6 +524,7 @@ pub struct CommonUniform {
 impl CommonUniform {
     pub fn new() -> Self {
         Self {
+            grid_size: UVec2::new(NUM_PARTICLES_X, NUM_PARTICLES_Y),
             ..Default::default()
         }
 
@@ -586,6 +593,11 @@ impl CommonUniform {
                     w: self.forces.w_axis.w,
                 },
             },
+
+            grid_size: crevice::std140::UVec2 {
+                x: self.grid_size.x,
+                y: self.grid_size.y,
+            },
         }
     }
 }
@@ -602,11 +614,8 @@ pub struct CommonUniformCrevice {
     pub i_sample_rate: f32, // sound sample rate
 
     pub i_mouse: crevice::std140::Vec4,
-
     pub forces: crevice::std140::Mat4,
-    // pub i_channel_time: crevice::std140::Vec4,
-    // pub i_channel_resolution: crevice::std140::Vec4,
-    // pub i_date: crevice::std140::Vec4,
+    pub grid_size: crevice::std140::UVec2,
 }
 
 #[derive(Deref)]
@@ -619,37 +628,6 @@ impl ExtractResource for ExtractedUniform {
         ExtractedUniform(common_uniform.into_crevice().clone())
     }
 }
-
-// pub struct ExtractedTextures {
-//     pub a: TextureA,
-//     pub b: TextureB,
-//     pub c: TextureC,
-//     pub d: TextureD,
-// }
-
-// impl ExtractResource for ExtractedTextures {
-//     type Source = (TextureA, TextureB, TextureC, TextureD);
-
-//     fn extract_resource(textures: &Self::Source) -> Self {
-//         ExtractedTextures {
-//             a: TextureA(textures.0.clone()),
-//             b: TextureB(textures.1.clone()),
-//             c: TextureC(textures.2.clone()),
-//             d: TextureD(textures.3.clone()),
-//         }
-//     }
-// }
-
-// #[derive(Deref)]
-// pub struct ExtractedTextureA(TextureA);
-
-// impl ExtractResource for ExtractedTextureA {
-//     type Source = TextureA;
-
-//     fn extract_resource(texture: &Self::Source) -> Self {
-//         ExtractedTextureA(TextureA(texture.0.clone()))
-//     }
-// }
 
 pub struct CommonUniformMeta {
     buffer: Buffer,
@@ -800,7 +778,7 @@ impl Plugin for ShadertoyPlugin {
 
         let render_device = render_app.world.resource::<RenderDevice>();
 
-        let buffers = Buffers::new(&render_device.clone(), None, None);
+        let buffers = Buffers::new(&render_device.clone(), None);
 
         let buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("common uniform buffer"),
@@ -889,7 +867,7 @@ impl ShadertoyPipelines {
         }
     }
 
-    pub fn new(buffer_min_binding_size: u64, render_device: &RenderDevice) -> Self {
+    pub fn new(render_device: &RenderDevice) -> Self {
         // info!(
         //     "buffer_min_binding_size: {}",
         //     std::mem::size_of::<CommonUniformCrevice>() as u64
@@ -927,10 +905,10 @@ impl ShadertoyPipelines {
                 label: Some("any_buffer_layout"),
                 entries: &[
                     uniform_descriptor,
-                    Buffers::make_buffer_layout(1, buffer_min_binding_size),
-                    Buffers::make_buffer_layout(2, buffer_min_binding_size),
-                    Buffers::make_buffer_layout(3, buffer_min_binding_size),
-                    Buffers::make_buffer_layout(4, buffer_min_binding_size),
+                    Buffers::make_buffer_layout(1),
+                    Buffers::make_buffer_layout(2),
+                    Buffers::make_buffer_layout(3),
+                    Buffers::make_buffer_layout(4),
                     // Buffers::make_buffer_layout(10, buffer_min_binding_size),
                 ],
             });
@@ -944,10 +922,10 @@ impl ShadertoyPipelines {
                     // ShadertoyPipelines::make_texture_layout(2),
                     // ShadertoyPipelines::make_texture_layout(3),
                     // ShadertoyPipelines::make_texture_layout(4),
-                    Buffers::make_buffer_layout(1, buffer_min_binding_size),
-                    Buffers::make_buffer_layout(2, buffer_min_binding_size),
-                    Buffers::make_buffer_layout(3, buffer_min_binding_size),
-                    Buffers::make_buffer_layout(4, buffer_min_binding_size),
+                    Buffers::make_buffer_layout(1),
+                    Buffers::make_buffer_layout(2),
+                    Buffers::make_buffer_layout(3),
+                    Buffers::make_buffer_layout(4),
                     BindGroupLayoutEntry {
                         binding: 5,
                         visibility: ShaderStages::COMPUTE,
@@ -1023,15 +1001,15 @@ impl FromWorld for ShadertoyPipelines {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let mut buffer_min_binding_size =
-            (WINDOW_HEIGHT as u64 * WINDOW_WIDTH as u64 * 4 * 4) as u64;
-        let common_uni = world.get_resource::<CommonUniform>();
-        if let Some(uniform) = common_uni {
-            buffer_min_binding_size =
-                uniform.i_resolution.x as u64 * uniform.i_resolution.y as u64 * 4 * 4;
-        }
+        // let mut buffer_min_binding_size =
+        //     (WINDOW_HEIGHT as u64 * WINDOW_WIDTH as u64 * 4 * 4) as u64;
+        // let common_uni = world.get_resource::<CommonUniform>();
+        // if let Some(uniform) = common_uni {
+        //     buffer_min_binding_size =
+        //         uniform.i_resolution.x as u64 * uniform.i_resolution.y as u64 * 4 * 4;
+        // }
 
-        ShadertoyPipelines::new(buffer_min_binding_size, render_device)
+        ShadertoyPipelines::new(render_device)
     }
 }
 
@@ -1189,11 +1167,11 @@ pub fn prepare_common_uniform(
     // TODO: DO THIS IN THE EXTRACT PHASE?
     // modify the pipelines according to the new window size if applicable
     if extrated_common_uniform_crevice.changed_window_size > 0.5 {
-        let buffer_size = extrated_common_uniform_crevice.i_resolution.x as u64
-            * extrated_common_uniform_crevice.i_resolution.y as u64
-            * 4
-            * 4;
-        *pipelines = ShadertoyPipelines::new(buffer_size, &render_device);
+        // let buffer_size = extrated_common_uniform_crevice.i_resolution.x as u64
+        //     * extrated_common_uniform_crevice.i_resolution.y as u64
+        //     * 4
+        //     * 4;
+        *pipelines = ShadertoyPipelines::new(&render_device);
     }
 
     // TODO: HOW TO ACTUALLY SERIALIZE THE UNIFORM
@@ -1227,14 +1205,14 @@ fn queue_bind_group(
     mut pipeline_cache: ResMut<PipelineCache>,
     all_shader_handles: Res<ShaderHandles>,
     common_uniform_meta: ResMut<CommonUniformMeta>,
-    crevice_common_uniform: Res<ExtractedUniform>,
+    // crevice_common_uniform: Res<ExtractedUniform>,
     changed_size_res: ResMut<ChangedWindowSize>,
     mut render_graph: ResMut<RenderGraph>,
 ) {
-    let buffer_size = crevice_common_uniform.0.i_resolution.x as u64
-        * crevice_common_uniform.0.i_resolution.y as u64
-        * 4
-        * 4;
+    // let buffer_size = crevice_common_uniform.0.i_resolution.x as u64
+    //     * crevice_common_uniform.0.i_resolution.y as u64
+    //     * 4
+    //     * 4;
 
     if changed_size_res.0 {
         let main_node: &mut MainNode = render_graph
@@ -1284,16 +1262,6 @@ fn queue_bind_group(
     let rgba_noise_256_view = &gpu_images[&shadertoy_textures.rgba_noise_256_handle];
     let blue_noise_view = &gpu_images[&shadertoy_textures.blue_noise_handle];
 
-    // let texture_a_view = &gpu_images[&texture_a_image.0];
-    // let texture_b_view = &gpu_images[&texture_b_image.0];
-    // let texture_c_view = &gpu_images[&texture_c_image.0];
-    // let texture_d_view = &gpu_images[&texture_d_image.0];
-
-    // let texture_a_view = &gpu_images[&textures.a.0];
-    // let texture_b_view = &gpu_images[&textures.b.0];
-    // let texture_c_view = &gpu_images[&textures.c.0];
-    // let texture_d_view = &gpu_images[&textures.d.0];
-
     let main_image_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: Some("main_bind_group"),
         layout: &pipeline.main_image_group_layout,
@@ -1302,26 +1270,10 @@ fn queue_bind_group(
                 binding: 0,
                 resource: common_uniform_meta.buffer.as_entire_binding(),
             },
-            buffers.make_buffer_bind_group(1, buffer_size, "a"),
-            buffers.make_buffer_bind_group(2, buffer_size, "b"),
-            buffers.make_buffer_bind_group(3, buffer_size, "c"),
-            buffers.make_buffer_bind_group(4, buffer_size, "d"),
-            // BindGroupEntry {
-            //     binding: 1,
-            //     resource: BindingResource::TextureView(&texture_a_view.texture_view),
-            // },
-            // BindGroupEntry {
-            //     binding: 2,
-            //     resource: BindingResource::TextureView(&texture_b_view.texture_view),
-            // },
-            // BindGroupEntry {
-            //     binding: 3,
-            //     resource: BindingResource::TextureView(&texture_c_view.texture_view),
-            // },
-            // BindGroupEntry {
-            //     binding: 4,
-            //     resource: BindingResource::TextureView(&texture_d_view.texture_view),
-            // },
+            buffers.make_buffer_bind_group(1, "a"),
+            buffers.make_buffer_bind_group(2, "b"),
+            buffers.make_buffer_bind_group(3, "c"),
+            buffers.make_buffer_bind_group(4, "d"),
             BindGroupEntry {
                 binding: 5,
                 resource: BindingResource::TextureView(&main_view.texture_view),
@@ -1413,7 +1365,7 @@ impl render_graph::Node for MainNode {
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
         let bind_group = world.resource::<MainImageBindGroup>();
-        let canvas_size = world.resource::<ShadertoyCanvas>();
+        // let canvas_size = world.resource::<ShadertoyCanvas>();
 
         let init_pipeline_cache = bind_group.init_pipeline;
         let update_pipeline_cache = bind_group.update_pipeline;
@@ -1438,8 +1390,10 @@ impl render_graph::Node for MainNode {
                     .unwrap();
                 pass.set_pipeline(init_pipeline);
                 pass.dispatch_workgroups(
-                    canvas_size.width / WORKGROUP_SIZE,
-                    canvas_size.height / WORKGROUP_SIZE,
+                    // canvas_size.width / WORKGROUP_SIZE,
+                    NUM_PARTICLES_X as u32 / WORKGROUP_SIZE,
+                    // canvas_size.height / WORKGROUP_SIZE,
+                    NUM_PARTICLES_Y as u32 / WORKGROUP_SIZE,
                     1,
                 );
             }
@@ -1450,8 +1404,10 @@ impl render_graph::Node for MainNode {
                     .unwrap();
                 pass.set_pipeline(update_pipeline);
                 pass.dispatch_workgroups(
-                    canvas_size.width / WORKGROUP_SIZE,
-                    canvas_size.height / WORKGROUP_SIZE,
+                    // canvas_size.width / WORKGROUP_SIZE,
+                    NUM_PARTICLES_X as u32 / WORKGROUP_SIZE,
+                    // canvas_size.height / WORKGROUP_SIZE,
+                    NUM_PARTICLES_Y as u32 / WORKGROUP_SIZE,
                     1,
                 );
             }

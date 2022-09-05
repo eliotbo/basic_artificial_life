@@ -1,18 +1,15 @@
 use bevy::{
     prelude::*,
     render::{
-        extract_resource::ExtractResource,
         render_graph,
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
     },
 };
 
-use std::borrow::Cow;
-
 use crate::{
-    Buffers, CommonUniform, CommonUniformCrevice, CommonUniformMeta, ExtractedUniform,
-    ShaderHandles, ShadertoyCanvas, ShadertoyPipelines, ShadertoyState, WORKGROUP_SIZE,
+    Buffers, CommonUniformMeta, ShaderHandles, ShadertoyCanvas, ShadertoyPipelines, ShadertoyState,
+    WORKGROUP_SIZE,
 };
 
 struct TextureDBindGroup {
@@ -29,13 +26,13 @@ pub fn queue_bind_group_d(
     common_uniform_meta: ResMut<CommonUniformMeta>,
 
     all_shader_handles: Res<ShaderHandles>,
-    common_uniform: Res<ExtractedUniform>,
+    // common_uniform: Res<ExtractedUniform>,
     buffers: ResMut<Buffers>,
 ) {
     // buffe size is number_of_pixels * 4 (rgba) * 4 bytes (float)
     // let buffer_size = buffers.buffer_size;
-    let buffer_size =
-        common_uniform.0.i_resolution.x as u64 * common_uniform.0.i_resolution.y as u64 * 4 * 4;
+    // let buffer_size =
+    //     common_uniform.0.i_resolution.x as u64 * common_uniform.0.i_resolution.y as u64 * 4 * 4;
     // common_uniform.i_resolution.x as u64 * common_uniform.i_resolution.y as u64 * 4 * 4;
 
     let init_pipeline = pipeline_cache.queue_compute_pipeline(Buffers::make_pipeline_descriptor(
@@ -58,10 +55,10 @@ pub fn queue_bind_group_d(
                 binding: 0,
                 resource: common_uniform_meta.buffer.as_entire_binding(),
             },
-            buffers.make_buffer_bind_group(1, buffer_size, "a"),
-            buffers.make_buffer_bind_group(2, buffer_size, "b"),
-            buffers.make_buffer_bind_group(3, buffer_size, "c"),
-            buffers.make_buffer_bind_group(4, buffer_size, "d"),
+            buffers.make_buffer_bind_group(1, "a"),
+            buffers.make_buffer_bind_group(2, "b"),
+            buffers.make_buffer_bind_group(3, "c"),
+            buffers.make_buffer_bind_group(4, "d"),
             // buffers.make_buffer_bind_group(10, buffer_size, "quad_tree"),
         ],
     });

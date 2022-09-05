@@ -16,6 +16,8 @@ struct CommonUniform {
     
 
     forces: mat4x4<f32>,
+
+    grid_size: vec4<u32>,
 };
 
 
@@ -36,6 +38,7 @@ var<uniform> uni: CommonUniform;
 
 
 fn get_index( location: vec2<i32> ) -> i32 {
-    return i32(uni.iResolution.y) * i32(location.x )  + i32(location.y ) ;
+    // return i32(uni.iResolution.y) * i32(location.x )  + i32(location.y ) ;
+    return i32(uni.grid_size.y) * i32(location.x )  + i32(location.y ) ;
 }
 
