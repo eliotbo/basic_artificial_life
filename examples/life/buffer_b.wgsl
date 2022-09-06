@@ -54,7 +54,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         // let dummy_delta = vec2<f32>(-0.1, -0.05);
 
 
-        // slot.pos = slot.pos + slot.vel ;
+        slot.pos = slot.pos + slot.vel ;
 
         var new_grid_loc = grid_location;
 
@@ -64,37 +64,56 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
         // find the new grid location if the pos is outside of the 0 to 1 range
         if (slot.pos.x > 1.0) {
-            new_grid_loc.x = (new_grid_loc.x + 1)  ;
-            slot.pos.x = slot.pos.x - 1.0;
+            // add wall collisions.
+            if (new_grid_loc.x == i32(uni.grid_size.x) - 1) {
+                slot.pos.x = 0.99;
+                slot.vel.x = -slot.vel.x;
+            } else {
+                new_grid_loc.x = new_grid_loc.x + 1;
+                slot.pos.x = slot.pos.x - 1.0;
+            }
 
-            // torus (pacman type boundaries)
-            new_grid_loc.x = new_grid_loc.x % (i32(uni.grid_size.x) );
+
+
         } 
 
         if (slot.pos.y > 1.0) {
-            new_grid_loc.y = (new_grid_loc.y + 1);
-            slot.pos.y = slot.pos.y - 1.0;
 
-            new_grid_loc = new_grid_loc % vec2<i32>(uni.grid_size.xy);
+            if (new_grid_loc.y == i32(uni.grid_size.y) - 1) {
+                slot.pos.y = 0.99;
+                slot.vel.y = -slot.vel.y;
+            } else {
+                new_grid_loc.y = new_grid_loc.y + 1;
+                slot.pos.y = slot.pos.y - 1.0;
+            }
+            // new_grid_loc.y = (new_grid_loc.y + 1);
+            // slot.pos.y = slot.pos.y - 1.0;
+
         }
 
 
         if (slot.pos.x < 0.0) {
-            new_grid_loc.x = (new_grid_loc.x - 1);
-            if (new_grid_loc.x < 0) {
-                new_grid_loc.x = i32(uni.grid_size.x) - 1;
-            } 
-
-            slot.pos.x = 1.0 + slot.pos.x;
+            if (new_grid_loc.x == 0) {
+                slot.pos.x = 0.01;
+                slot.vel.x = -slot.vel.x;
+            } else {
+                new_grid_loc.x = new_grid_loc.x - 1;
+                slot.pos.x = slot.pos.x + 1.0;
+            }
+            // new_grid_loc.x = (new_grid_loc.x - 1);
+            // slot.pos.x = 1.0 + slot.pos.x;
         } 
 
         if (slot.pos.y < 0.0) {
-            new_grid_loc.y = (new_grid_loc.y - 1) ;
-
-            if (new_grid_loc.y < 0) {
-                new_grid_loc.y = i32(uni.grid_size.y) - 1;
-            } 
-            slot.pos.y = 1.0 + slot.pos.y;
+            if (new_grid_loc.y == 0) {
+                slot.pos.y = 0.01;
+                slot.vel.y = -slot.vel.y;
+            } else {
+                new_grid_loc.y = new_grid_loc.y - 1;
+                slot.pos.y = slot.pos.y + 1.0;
+            }
+            // new_grid_loc.y = (new_grid_loc.y - 1) ;
+            // slot.pos.y = 1.0 + slot.pos.y;
         } 
 
 

@@ -1,5 +1,5 @@
 
-// struct PixelBuffer {
+// struct GridBuffer {
 //     pixels: array<vec4<f32>>,
 // };
 
@@ -11,6 +11,11 @@ struct GridSlot {
     kind: u32,
 }
 
+struct Trails {
+    intensities: vec4<f32>,
+}
+
+
 struct GridSlotEncoded {
     id: u32,
     mass_kind_pos_encoded: u32,
@@ -18,7 +23,11 @@ struct GridSlotEncoded {
     dummy: u32,
 }
 
-struct PixelBuffer {
+struct TrailBuffer {
+    pixels: array<Trails>,
+};
+
+struct GridBuffer {
     pixels: array<GridSlotEncoded>,
 };
 
@@ -45,16 +54,16 @@ struct CommonUniform {
 var<uniform> uni: CommonUniform;
 
 @group(0) @binding(1)
- var<storage, read_write> buffer_a: PixelBuffer;
+ var<storage, read_write> buffer_a: GridBuffer;
 
 @group(0) @binding(2)
- var<storage, read_write> buffer_b: PixelBuffer;
+ var<storage, read_write> buffer_b: GridBuffer;
 
 @group(0) @binding(3)
- var<storage, read_write> buffer_c: PixelBuffer;
+ var<storage, read_write> buffer_c: TrailBuffer;
 
 @group(0) @binding(4)
- var<storage, read_write> buffer_d: PixelBuffer;
+ var<storage, read_write> buffer_d: GridBuffer;
 
 
 // TODO: is the -1 necessary?
@@ -111,6 +120,42 @@ fn hash2(p: vec2<f32>) -> vec2<f32> {
 } 
 
 
+let bg = vec4<f32>(0.10210, 0.083, 0.186, 1.0);
+
+// let purple = vec4<f32>(130.0 / 255.0, 106.0 / 255.0, 237.0 / 255.0, 1.0);
+let purple = vec4<f32>(0.510, 0.416, 0.929, 1.0);
+
+
+// let pink = vec4<f32>(200.0 / 255.0, 121.0 / 255.0, 255.0 / 255.0, 1.0);
+let pink = vec4<f32>(0.784, 0.475, 1.0, 1.0);
+
+
+// let c3 = vec4<f32>(255.0 / 255.0, 183.0 / 255.0, 255.0 / 255.0, 1.0);
+let salmon = vec4<f32>(1.0, 0.718, 1.0, 1.0);
+
+// let c4 = vec4<f32>(59.0 / 255.0, 244.0 / 255.0, 251.0 / 255.0, 1.0);
+let aqua = vec4<f32>(0.231, 0.957, 0.984, 1.0);
+
+// let c5 = vec4<f32>(202.0 / 255.0, 255.0 / 255.0, 138.0 / 255.0, 1.0);
+let yellow = vec4<f32>(0.792, 1.0, 0.541, 1.0);
+let brown = vec4<f32>(0.498, 0.41, 0.356, 1.0);
+let beige = vec4<f32>(0.839, 0.792, 0.596, 1.0);
+let dark_purple = vec4<f32>(0.447, 0.098, 0.353, 1.0);
+
+// 12, 202, 74
+// let dark_green = vec4<f32>(12.0 / 255.0, 202.0 / 255.0, 74.0 / 255.0, 1.0);
+let dark_green = vec4<f32>(0.047, 0.792, 0.290, 1.0);
+
+
+// let soft_gray =  vec4<f32>(68.0 / 255.0, 64.0 / 255.0, 84.0 / 255.0, 1.0);
+let soft_gray =  vec4<f32>(0.267, 0.251, 0.329, 1.0);
+
+let black = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+let gray = vec4<f32>(0.051, 0.051, 0.051, 1.0);
+
+// let blue = vec4<f32>(21, 244, 238);
+let blue = vec4<f32>(0.082, 0.957, 0.933, 1.0);
+
 
 // struct GridSlot {
 //     pos: vec2<f32>,
@@ -129,6 +174,8 @@ fn hash2(p: vec2<f32>) -> vec2<f32> {
 // let empty_slot = GridSlot (vec2<f32>(0., 0.), vec2<f32>(0., 0.), 0, 0, 0);
 let empty_encoded_slot = GridSlotEncoded (0u, 0u, 0u, 0u);
 
+let max_trail_intensity = 2.0;
+let trail_decay = 0.95;
 let ball_radius = 0.5;
 let max_vel = 0.5;
 let u8max = 255.0;
@@ -209,12 +256,51 @@ fn encode(slot: GridSlot) -> GridSlotEncoded {
 //     grid_location: vec2<i32>
 // ) -> vec2<i32> {
 
-        
-//         (*slot).pos = (*slot).pos + delta ;
-//         let new_grid_location = floor((*slot).pos)
+
+    // var new_grid_loc = grid_location;
+
+    // if (slot.pos.x > 1.0) || (slot.pos.x < 0.0) || (slot.pos.y > 1.0) || (slot.pos.y < 0.0) {
+    //     buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
+    // }
+
+    // // find the new grid location if the pos is outside of the 0 to 1 range
+    // if (slot.pos.x > 1.0) {
+    //     new_grid_loc.x = (new_grid_loc.x + 1)  ;
+    //     slot.pos.x = slot.pos.x - 1.0;
+
+    //     // torus (pacman type boundaries)
+    //     new_grid_loc.x = new_grid_loc.x % (i32(uni.grid_size.x) );
+    // } 
+
+    // if (slot.pos.y > 1.0) {
+    //     new_grid_loc.y = (new_grid_loc.y + 1);
+    //     slot.pos.y = slot.pos.y - 1.0;
+
+    //     new_grid_loc = new_grid_loc % vec2<i32>(uni.grid_size.xy);
+    // }
 
 
-//         return new_grid_location;
+    // if (slot.pos.x < 0.0) {
+    //     new_grid_loc.x = (new_grid_loc.x - 1);
+    //     if (new_grid_loc.x < 0) {
+    //         new_grid_loc.x = i32(uni.grid_size.x) - 1;
+    //     } 
+
+    //     slot.pos.x = 1.0 + slot.pos.x;
+    // } 
+
+    // if (slot.pos.y < 0.0) {
+    //     new_grid_loc.y = (new_grid_loc.y - 1) ;
+
+    //     if (new_grid_loc.y < 0) {
+    //         new_grid_loc.y = i32(uni.grid_size.y) - 1;
+    //     } 
+    //     slot.pos.y = 1.0 + slot.pos.y;
+    // } 
+
+
+
+    
 
 // }
 
@@ -226,34 +312,7 @@ fn sdCircle(p: vec2<f32>, c: vec2<f32>, r: f32) -> f32 {
 }
 
 
-let bg = vec4<f32>(0.10210, 0.083, 0.186, 1.0);
 
-// let purple = vec4<f32>(130.0 / 255.0, 106.0 / 255.0, 237.0 / 255.0, 1.0);
-let purple = vec4<f32>(0.510, 0.416, 0.929, 1.0);
-
-// let pink = vec4<f32>(200.0 / 255.0, 121.0 / 255.0, 255.0 / 255.0, 1.0);
-let pink = vec4<f32>(0.784, 0.475, 1.0, 1.0);
-
-// let c3 = vec4<f32>(255.0 / 255.0, 183.0 / 255.0, 255.0 / 255.0, 1.0);
-let salmon = vec4<f32>(1.0, 0.718, 1.0, 1.0);
-
-// let c4 = vec4<f32>(59.0 / 255.0, 244.0 / 255.0, 251.0 / 255.0, 1.0);
-let aqua = vec4<f32>(0.231, 0.957, 0.984, 1.0);
-
-// let c5 = vec4<f32>(202.0 / 255.0, 255.0 / 255.0, 138.0 / 255.0, 1.0);
-let green = vec4<f32>(0.792, 1.0, 0.541, 1.0);
-let brown = vec4<f32>(0.498, 0.41, 0.356, 1.0);
-let beige = vec4<f32>(0.839, 0.792, 0.596, 1.0);
-let dark_purple = vec4<f32>(0.447, 0.098, 0.353, 1.0);
-
-// let red = vec4<f32>(1.0, 0.0, 0.0, 1.0);
-// let green = vec4<f32>(0.0, 1.0, 0.0, 1.0);
-// let blue = vec4<f32>(0.0, 0.0, 1.0, 1.0);
-// let yellow = vec4<f32>(1.0, 1.0, 0.0, 1.0);
-// let cyan = vec4<f32>(0.0, 1.0, 1.0, 1.0);
-
-let black = vec4<f32>(0.0, 0.0, 0.0, 1.0);
-let gray = vec4<f32>(0.051, 0.051, 0.051, 1.0);
 
 
 
@@ -261,6 +320,10 @@ fn sdXSegment(p: f32, x: f32) -> f32 {
     return length( p - x );
 }
 
+fn sdBox(p: vec2<f32>, b: vec2<f32>) -> f32 {
+	let d: vec2<f32> = abs(p) - b;
+	return length(max(d, vec2<f32>(0.))) + min(max(d.x, d.y), 0.);
+} 
 
 
 
@@ -297,25 +360,20 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // let buffer_location_index = get_index(vec2<i32>(invocation_id.xy));
 
      
+    // expansion coefficient
+    let eco = uni.iResolution.x / f32(uni.grid_size.x);
+    let grid_loc = vec2<i32>(vec2<f32>(location) / eco);
 
-    let expansion_coefficient = uni.iResolution.x / f32(uni.grid_size.x);
-    let grid_loc = vec2<i32>(vec2<f32>(location) / expansion_coefficient);
-
-
+    let ball_radius_co = eco * ball_radius;
 
     // var color = vec4<f32>(0.25, 0.8, 0.8, 1.0);
-    var color = dark_purple / 1.3;
+    var color = dark_purple / 4.0;
     color.a = 1.0;
 
 
 
-    let co = expansion_coefficient;
+    let co = eco;
     let co2 = co / 1.;
-
-    // let sx = sdXSegment((float_loc.x + 0.5) % co, co2);
-    // let sy = sdXSegment((float_loc.y + 0.5) % co, co2);
-    // color = mix(color, beige, 1.0 - smoothstep(0.0, 3.0, sx));
-    // color = mix(color, beige, 1.0 - smoothstep(0.0, 3.0, sy));
 
     var grid_color = dark_purple * 1.3;
     grid_color.a = 1.0;
@@ -325,6 +383,28 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     color = mix(color, grid_color, 1.0 - smoothstep(0.0, 3.0, sy));
 
 
+    // //////////////////// trails ///////////////////////////////////////
+    let non_normalized_trail = buffer_c.pixels[get_index(grid_loc)].intensities;
+    var trail = non_normalized_trail / max_trail_intensity;
+    // let trail_sdf = sdCircle(vec2<f32>(location) , (vec2<f32>(grid_loc ) + 0.5) * eco, ball_radius_co);
+    let trail_sdf = sdBox(vec2<f32>(location) , (vec2<f32>(grid_loc ) + 1.) * eco);
+
+    var bright_blue = blue * 1.4;
+
+    bright_blue.a = (trail.x + trail.y + trail.z + trail.w) / 4.0; 
+    var transparent_green = bright_blue;
+    transparent_green.a = 0.0;
+
+    let trail_green = mix(transparent_green, bright_blue, 1.0 - smoothstep(-2.0, 0.0, trail_sdf));
+
+
+    // color = mix(color, trail_green, trail_green.a / 2.0);
+
+
+    // //////////////////// trails ///////////////////////////////////////
+
+
+
 
 
 
@@ -332,13 +412,12 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // let slot: GridSlot = decode(slot_encoded);
 
     // todo:
-    // 1) add velocity to GridSlot
     // 2) add collision with walls
     // 2) add gravity to forces step
     // 3) add collision detection
     // 
 
-     let ball_radius_co = expansion_coefficient * ball_radius;
+     
 
     //  let ball_radius = 20.;
 
@@ -359,9 +438,9 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
             if (neighbor_slot.mass > 0u) {
 
-                // let ball_position = neighbor_slot.pos *   expansion_coefficient;
+                // let ball_position = neighbor_slot.pos *   eco;
                 
-                let ball_position = (vec2<f32>(neighbor_loc) + neighbor_slot.pos ) *   expansion_coefficient;
+                let ball_position = (vec2<f32>(neighbor_loc) + neighbor_slot.pos ) *   eco;
 
                 let s = sdCircle(vec2<f32>(location) , ball_position, ball_radius_co);
 
@@ -373,12 +452,12 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
                     case 1u { ball_color = salmon; }
                     case 2u { ball_color = aqua; }
                     // case 3u { ball_color = yellow; }
-                    default { ball_color = green; }
+                    default { ball_color = dark_green; }
 
                 }
 
                 color = mix(color, ball_color, 1.0 - smoothstep(-2.0, 0.0, s));
-                color = mix(color, gray, 1.0 - smoothstep(-2.0, 3.0, abs(s)));
+                color = mix(color, gray, 1.0 - smoothstep(-2.0, 2.0, abs(s)));
             }
         }
     }

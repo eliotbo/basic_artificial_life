@@ -1,4 +1,4 @@
-// struct PixelBuffer {
+// struct GridBuffer {
 //     pixels: array<vec4<f32>>,
 // };
 
@@ -10,6 +10,11 @@ struct GridSlot {
     kind: u32,
 }
 
+struct Trails {
+    intensities: vec4<f32>,
+}
+
+
 struct GridSlotEncoded {
     id: u32,
     mass_kind_pos_encoded: u32,
@@ -17,7 +22,11 @@ struct GridSlotEncoded {
     dummy: u32,
 }
 
-struct PixelBuffer {
+struct TrailBuffer {
+    pixels: array<Trails>,
+};
+
+struct GridBuffer {
     pixels: array<GridSlotEncoded>,
 };
 
@@ -44,16 +53,16 @@ struct CommonUniform {
 var<uniform> uni: CommonUniform;
 
 @group(0) @binding(1)
- var<storage, read_write> buffer_a: PixelBuffer;
+ var<storage, read_write> buffer_a: GridBuffer;
 
 @group(0) @binding(2)
- var<storage, read_write> buffer_b: PixelBuffer;
+ var<storage, read_write> buffer_b: GridBuffer;
 
 @group(0) @binding(3)
- var<storage, read_write> buffer_c: PixelBuffer;
+ var<storage, read_write> buffer_c: TrailBuffer;
 
 @group(0) @binding(4)
- var<storage, read_write> buffer_d: PixelBuffer;
+ var<storage, read_write> buffer_d: GridBuffer;
 
 
 // TODO: is the -1 necessary?
@@ -86,6 +95,42 @@ fn hash2(p: vec2<f32>) -> vec2<f32> {
 } 
 
 
+let bg = vec4<f32>(0.10210, 0.083, 0.186, 1.0);
+
+// let purple = vec4<f32>(130.0 / 255.0, 106.0 / 255.0, 237.0 / 255.0, 1.0);
+let purple = vec4<f32>(0.510, 0.416, 0.929, 1.0);
+
+
+// let pink = vec4<f32>(200.0 / 255.0, 121.0 / 255.0, 255.0 / 255.0, 1.0);
+let pink = vec4<f32>(0.784, 0.475, 1.0, 1.0);
+
+
+// let c3 = vec4<f32>(255.0 / 255.0, 183.0 / 255.0, 255.0 / 255.0, 1.0);
+let salmon = vec4<f32>(1.0, 0.718, 1.0, 1.0);
+
+// let c4 = vec4<f32>(59.0 / 255.0, 244.0 / 255.0, 251.0 / 255.0, 1.0);
+let aqua = vec4<f32>(0.231, 0.957, 0.984, 1.0);
+
+// let c5 = vec4<f32>(202.0 / 255.0, 255.0 / 255.0, 138.0 / 255.0, 1.0);
+let yellow = vec4<f32>(0.792, 1.0, 0.541, 1.0);
+let brown = vec4<f32>(0.498, 0.41, 0.356, 1.0);
+let beige = vec4<f32>(0.839, 0.792, 0.596, 1.0);
+let dark_purple = vec4<f32>(0.447, 0.098, 0.353, 1.0);
+
+// 12, 202, 74
+// let dark_green = vec4<f32>(12.0 / 255.0, 202.0 / 255.0, 74.0 / 255.0, 1.0);
+let dark_green = vec4<f32>(0.047, 0.792, 0.290, 1.0);
+
+
+// let soft_gray =  vec4<f32>(68.0 / 255.0, 64.0 / 255.0, 84.0 / 255.0, 1.0);
+let soft_gray =  vec4<f32>(0.267, 0.251, 0.329, 1.0);
+
+let black = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+let gray = vec4<f32>(0.051, 0.051, 0.051, 1.0);
+
+// let blue = vec4<f32>(21, 244, 238);
+let blue = vec4<f32>(0.082, 0.957, 0.933, 1.0);
+
 
 // struct GridSlot {
 //     pos: vec2<f32>,
@@ -104,6 +149,8 @@ fn hash2(p: vec2<f32>) -> vec2<f32> {
 // let empty_slot = GridSlot (vec2<f32>(0., 0.), vec2<f32>(0., 0.), 0, 0, 0);
 let empty_encoded_slot = GridSlotEncoded (0u, 0u, 0u, 0u);
 
+let max_trail_intensity = 2.0;
+let trail_decay = 0.95;
 let ball_radius = 0.5;
 let max_vel = 0.5;
 let u8max = 255.0;
@@ -184,12 +231,51 @@ fn encode(slot: GridSlot) -> GridSlotEncoded {
 //     grid_location: vec2<i32>
 // ) -> vec2<i32> {
 
-        
-//         (*slot).pos = (*slot).pos + delta ;
-//         let new_grid_location = floor((*slot).pos)
+
+    // var new_grid_loc = grid_location;
+
+    // if (slot.pos.x > 1.0) || (slot.pos.x < 0.0) || (slot.pos.y > 1.0) || (slot.pos.y < 0.0) {
+    //     buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
+    // }
+
+    // // find the new grid location if the pos is outside of the 0 to 1 range
+    // if (slot.pos.x > 1.0) {
+    //     new_grid_loc.x = (new_grid_loc.x + 1)  ;
+    //     slot.pos.x = slot.pos.x - 1.0;
+
+    //     // torus (pacman type boundaries)
+    //     new_grid_loc.x = new_grid_loc.x % (i32(uni.grid_size.x) );
+    // } 
+
+    // if (slot.pos.y > 1.0) {
+    //     new_grid_loc.y = (new_grid_loc.y + 1);
+    //     slot.pos.y = slot.pos.y - 1.0;
+
+    //     new_grid_loc = new_grid_loc % vec2<i32>(uni.grid_size.xy);
+    // }
 
 
-//         return new_grid_location;
+    // if (slot.pos.x < 0.0) {
+    //     new_grid_loc.x = (new_grid_loc.x - 1);
+    //     if (new_grid_loc.x < 0) {
+    //         new_grid_loc.x = i32(uni.grid_size.x) - 1;
+    //     } 
+
+    //     slot.pos.x = 1.0 + slot.pos.x;
+    // } 
+
+    // if (slot.pos.y < 0.0) {
+    //     new_grid_loc.y = (new_grid_loc.y - 1) ;
+
+    //     if (new_grid_loc.y < 0) {
+    //         new_grid_loc.y = i32(uni.grid_size.y) - 1;
+    //     } 
+    //     slot.pos.y = 1.0 + slot.pos.y;
+    // } 
+
+
+
+    
 
 // }
 
@@ -249,7 +335,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         // let dummy_delta = vec2<f32>(-0.1, -0.05);
 
 
-        // slot.pos = slot.pos + slot.vel ;
+        slot.pos = slot.pos + slot.vel ;
 
         var new_grid_loc = grid_location;
 
@@ -259,37 +345,56 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
         // find the new grid location if the pos is outside of the 0 to 1 range
         if (slot.pos.x > 1.0) {
-            new_grid_loc.x = (new_grid_loc.x + 1)  ;
-            slot.pos.x = slot.pos.x - 1.0;
+            // add wall collisions.
+            if (new_grid_loc.x == i32(uni.grid_size.x) - 1) {
+                slot.pos.x = 0.99;
+                slot.vel.x = -slot.vel.x;
+            } else {
+                new_grid_loc.x = new_grid_loc.x + 1;
+                slot.pos.x = slot.pos.x - 1.0;
+            }
 
-            // torus (pacman type boundaries)
-            new_grid_loc.x = new_grid_loc.x % (i32(uni.grid_size.x) );
+
+
         } 
 
         if (slot.pos.y > 1.0) {
-            new_grid_loc.y = (new_grid_loc.y + 1);
-            slot.pos.y = slot.pos.y - 1.0;
 
-            new_grid_loc = new_grid_loc % vec2<i32>(uni.grid_size.xy);
+            if (new_grid_loc.y == i32(uni.grid_size.y) - 1) {
+                slot.pos.y = 0.99;
+                slot.vel.y = -slot.vel.y;
+            } else {
+                new_grid_loc.y = new_grid_loc.y + 1;
+                slot.pos.y = slot.pos.y - 1.0;
+            }
+            // new_grid_loc.y = (new_grid_loc.y + 1);
+            // slot.pos.y = slot.pos.y - 1.0;
+
         }
 
 
         if (slot.pos.x < 0.0) {
-            new_grid_loc.x = (new_grid_loc.x - 1);
-            if (new_grid_loc.x < 0) {
-                new_grid_loc.x = i32(uni.grid_size.x) - 1;
-            } 
-
-            slot.pos.x = 1.0 + slot.pos.x;
+            if (new_grid_loc.x == 0) {
+                slot.pos.x = 0.01;
+                slot.vel.x = -slot.vel.x;
+            } else {
+                new_grid_loc.x = new_grid_loc.x - 1;
+                slot.pos.x = slot.pos.x + 1.0;
+            }
+            // new_grid_loc.x = (new_grid_loc.x - 1);
+            // slot.pos.x = 1.0 + slot.pos.x;
         } 
 
         if (slot.pos.y < 0.0) {
-            new_grid_loc.y = (new_grid_loc.y - 1) ;
-
-            if (new_grid_loc.y < 0) {
-                new_grid_loc.y = i32(uni.grid_size.y) - 1;
-            } 
-            slot.pos.y = 1.0 + slot.pos.y;
+            if (new_grid_loc.y == 0) {
+                slot.pos.y = 0.01;
+                slot.vel.y = -slot.vel.y;
+            } else {
+                new_grid_loc.y = new_grid_loc.y - 1;
+                slot.pos.y = slot.pos.y + 1.0;
+            }
+            // new_grid_loc.y = (new_grid_loc.y - 1) ;
+            // slot.pos.y = 1.0 + slot.pos.y;
         } 
 
 

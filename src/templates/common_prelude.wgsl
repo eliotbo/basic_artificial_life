@@ -1,4 +1,4 @@
-// struct PixelBuffer {
+// struct GridBuffer {
 //     pixels: array<vec4<f32>>,
 // };
 
@@ -10,6 +10,11 @@ struct GridSlot {
     kind: u32,
 }
 
+struct Trails {
+    intensities: vec4<f32>,
+}
+
+
 struct GridSlotEncoded {
     id: u32,
     mass_kind_pos_encoded: u32,
@@ -17,7 +22,11 @@ struct GridSlotEncoded {
     dummy: u32,
 }
 
-struct PixelBuffer {
+struct TrailBuffer {
+    pixels: array<Trails>,
+};
+
+struct GridBuffer {
     pixels: array<GridSlotEncoded>,
 };
 
@@ -44,16 +53,16 @@ struct CommonUniform {
 var<uniform> uni: CommonUniform;
 
 @group(0) @binding(1)
- var<storage, read_write> buffer_a: PixelBuffer;
+ var<storage, read_write> buffer_a: GridBuffer;
 
 @group(0) @binding(2)
- var<storage, read_write> buffer_b: PixelBuffer;
+ var<storage, read_write> buffer_b: GridBuffer;
 
 @group(0) @binding(3)
- var<storage, read_write> buffer_c: PixelBuffer;
+ var<storage, read_write> buffer_c: TrailBuffer;
 
 @group(0) @binding(4)
- var<storage, read_write> buffer_d: PixelBuffer;
+ var<storage, read_write> buffer_d: GridBuffer;
 
 
 // TODO: is the -1 necessary?
