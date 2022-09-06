@@ -27,10 +27,10 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
             // random type of particle
             var rand_kind = hash32(vec2<f32>(grid_location + 100)).x;
-            rand_kind = floor(rand_kind * 6.0);
+            rand_kind = floor(rand_kind * 4.0);
 
             // random initial velocity
-            let rand_vel = (hash32(vec2<f32>(grid_location + 200)).xy - 0.5) * 2. * max_vel;
+            let rand_vel = (hash32(vec2<f32>(grid_location + 200)).xy - 0.5) * 2. * max_vel / 3.0;
 
             // generate random u32 for id
             let id = u32(hash32(vec2<f32>(grid_location + 300)).x * u32max); 

@@ -149,10 +149,11 @@ let blue = vec4<f32>(0.082, 0.957, 0.933, 1.0);
 // let empty_slot = GridSlot (vec2<f32>(0., 0.), vec2<f32>(0., 0.), 0, 0, 0);
 let empty_encoded_slot = GridSlotEncoded (0u, 0u, 0u, 0u);
 
+let gravity = 0.2;
 let max_trail_intensity = 2.0;
 let trail_decay = 0.95;
 let ball_radius = 0.5;
-let max_vel = 0.5;
+let max_vel = 0.99;
 let u8max = 255.0;
 let u16max = 65535.0;
 let u32max = 4294967295.0;
@@ -308,10 +309,10 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
             // random type of particle
             var rand_kind = hash32(vec2<f32>(grid_location + 100)).x;
-            rand_kind = floor(rand_kind * 6.0);
+            rand_kind = floor(rand_kind * 4.0);
 
             // random initial velocity
-            let rand_vel = (hash32(vec2<f32>(grid_location + 200)).xy - 0.5) * 2. * max_vel;
+            let rand_vel = (hash32(vec2<f32>(grid_location + 200)).xy - 0.5) * 2. * max_vel / 3.0;
 
             // generate random u32 for id
             let id = u32(hash32(vec2<f32>(grid_location + 300)).x * u32max); 

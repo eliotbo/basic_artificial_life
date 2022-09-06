@@ -61,7 +61,9 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let ball_radius_co = eco * ball_radius;
 
     // var color = vec4<f32>(0.25, 0.8, 0.8, 1.0);
-    var color = dark_purple / 4.0;
+    let background_color = vec4<f32>(0.1, 0.1, 0.1, 1.0) / 3.;
+    // var color = dark_purple / 4.0;
+    var color = background_color;
     color.a = 1.0;
 
 
@@ -69,7 +71,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let co = eco;
     let co2 = co / 1.;
 
-    var grid_color = dark_purple * 1.3;
+    var grid_color = background_color * 1.3;
     grid_color.a = 1.0;
     let sx = sdXSegment(float_loc.x % co, co2);
     let sy = sdXSegment(float_loc.y % co, co2);
@@ -77,25 +79,25 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     color = mix(color, grid_color, 1.0 - smoothstep(0.0, 3.0, sy));
 
 
-    // // //////////////////// trails ///////////////////////////////////////
-    // let non_normalized_trail = buffer_c.pixels[get_index(grid_loc)].intensities;
-    // var trail = non_normalized_trail / max_trail_intensity;
-    // // let trail_sdf = sdCircle(vec2<f32>(location) , (vec2<f32>(grid_loc ) + 0.5) * eco, ball_radius_co);
-    // let trail_sdf = sdBox(vec2<f32>(location) , (vec2<f32>(grid_loc ) + 1.) * eco);
+    // //////////////////// trails ///////////////////////////////////////
+    let non_normalized_trail = buffer_c.pixels[get_index(grid_loc)].intensities;
+    var trail = non_normalized_trail / max_trail_intensity;
+    // let trail_sdf = sdCircle(vec2<f32>(location) , (vec2<f32>(grid_loc ) + 0.5) * eco, ball_radius_co);
+    let trail_sdf = sdBox(vec2<f32>(location) , (vec2<f32>(grid_loc ) + 1.) * eco);
 
-    // var bright_blue = blue * 1.4;
+    var bright_blue = blue * 1.4;
 
-    // bright_blue.a = (trail.x + trail.y + trail.z + trail.w) / 4.0; 
-    // var transparent_green = bright_blue;
-    // transparent_green.a = 0.0;
+    bright_blue.a = (trail.x + trail.y + trail.z + trail.w) / 4.0; 
+    var transparent_green = bright_blue;
+    transparent_green.a = 0.0;
 
-    // let trail_green = mix(transparent_green, bright_blue, 1.0 - smoothstep(-2.0, 0.0, trail_sdf));
-
-
-    // color = mix(color, trail_green, trail_green.a / 2.0);
+    let trail_green = mix(transparent_green, bright_blue, 1.0 - smoothstep(-2.0, 0.0, trail_sdf));
 
 
-    // // //////////////////// trails ///////////////////////////////////////
+    color = mix(color, trail_green, trail_green.a / 10.0);
+
+
+    // //////////////////// trails ///////////////////////////////////////
 
 
 
@@ -106,12 +108,12 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // let slot: GridSlot = decode(slot_encoded);
 
     // todo:
-    // 2) add collision with walls
+
     // 2) add gravity to forces step
     // 3) add collision detection
     // 
 
-     
+    let ball_brightness = 1.2;
 
     //  let ball_radius = 20.;
 
@@ -142,11 +144,11 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
                 
                 switch (neighbor_slot.kind) {
-                    case 0u { ball_color = pink; }
-                    case 1u { ball_color = salmon; }
-                    case 2u { ball_color = aqua; }
+                    case 0u { ball_color = pink * ball_brightness; }
+                    case 1u { ball_color = salmon * ball_brightness; }
+                    case 2u { ball_color = aqua * ball_brightness; }
                     // case 3u { ball_color = yellow; }
-                    default { ball_color = dark_green; }
+                    default { ball_color = dark_green * ball_brightness; }
 
                 }
 

@@ -54,13 +54,16 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         // let dummy_delta = vec2<f32>(-0.1, -0.05);
 
 
+        slot.vel  = slot.vel + abs(vec2<f32>( 0.0, gravity ) * uni.iTimeDelta);
+        slot.vel = clamp(slot.vel, vec2<f32>(-max_vel), vec2<f32>(max_vel));
+
         slot.pos = slot.pos + slot.vel ;
 
         var new_grid_loc = grid_location;
 
-        if (slot.pos.x > 1.0) || (slot.pos.x < 0.0) || (slot.pos.y > 1.0) || (slot.pos.y < 0.0) {
-            buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
-        }
+        // if (slot.pos.x > 1.0) || (slot.pos.x < 0.0) || (slot.pos.y > 1.0) || (slot.pos.y < 0.0) {
+        //     buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
+        // }
 
         // find the new grid location if the pos is outside of the 0 to 1 range
         if (slot.pos.x > 1.0) {
@@ -69,12 +72,13 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
                 slot.pos.x = 0.99;
                 slot.vel.x = -slot.vel.x;
             } else {
-                new_grid_loc.x = new_grid_loc.x + 1;
-                slot.pos.x = slot.pos.x - 1.0;
+                // new_grid_loc.x = new_grid_loc.x + 1;
+                // slot.pos.x = slot.pos.x - 1.0;
+
+                let num_grid_cells = floor(slot.pos.x);
+                new_grid_loc.x = new_grid_loc.x + i32(num_grid_cells);
+                slot.pos.x = slot.pos.x - num_grid_cells;
             }
-
-
-
         } 
 
         if (slot.pos.y > 1.0) {
@@ -82,12 +86,13 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
             if (new_grid_loc.y == i32(uni.grid_size.y) - 1) {
                 slot.pos.y = 0.99;
                 slot.vel.y = -slot.vel.y;
+
             } else {
-                new_grid_loc.y = new_grid_loc.y + 1;
-                slot.pos.y = slot.pos.y - 1.0;
+
+                let num_grid_cells = floor(slot.pos.y);
+                new_grid_loc.y = new_grid_loc.y + i32(num_grid_cells);
+                slot.pos.y = slot.pos.y - num_grid_cells;
             }
-            // new_grid_loc.y = (new_grid_loc.y + 1);
-            // slot.pos.y = slot.pos.y - 1.0;
 
         }
 
@@ -97,11 +102,11 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
                 slot.pos.x = 0.01;
                 slot.vel.x = -slot.vel.x;
             } else {
-                new_grid_loc.x = new_grid_loc.x - 1;
-                slot.pos.x = slot.pos.x + 1.0;
+
+                let num_grid_cells = 1.0 + floor(-slot.pos.x);
+                new_grid_loc.x = new_grid_loc.x - i32(num_grid_cells);
+                slot.pos.x = slot.pos.x + num_grid_cells;
             }
-            // new_grid_loc.x = (new_grid_loc.x - 1);
-            // slot.pos.x = 1.0 + slot.pos.x;
         } 
 
         if (slot.pos.y < 0.0) {
@@ -109,14 +114,16 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
                 slot.pos.y = 0.01;
                 slot.vel.y = -slot.vel.y;
             } else {
-                new_grid_loc.y = new_grid_loc.y - 1;
-                slot.pos.y = slot.pos.y + 1.0;
+
+                let num_grid_cells = 1.0 + floor(-slot.pos.y);
+                new_grid_loc.y = new_grid_loc.y - i32(num_grid_cells);
+                slot.pos.y = slot.pos.y + num_grid_cells;
             }
-            // new_grid_loc.y = (new_grid_loc.y - 1) ;
-            // slot.pos.y = 1.0 + slot.pos.y;
         } 
 
+        // slot.pos = clamp(slot.pos, vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0));
 
+        buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
         buffer_b.pixels[get_index(new_grid_loc)] = encode(slot);  
     }
 
