@@ -210,12 +210,12 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         // let rand = noise2d(vec2<f32>(grid_location + 1000));
 
         var color = vec4<f32>(0.1, 0.2, 0.3, 1.0);
-        let quoi = &buffer_a.pixels[get_index(grid_location)] ;
+        let quoi = &buffer_a.pixels[get_index(grid_location)];
 
         let expansion_coefficient = uni.iResolution.x / f32(uni.grid_size.x);
 
-        if (rand.x > 0.9) {
-            let quoi = &buffer_a.pixels[get_index(grid_location)] ;
+        if (rand.x > 0.7) {
+            let quoi = &buffer_a.pixels[get_index(grid_location)];
 
             // let rand_pos = hash32(vec2<f32>(grid_location)).xy 
             //     * vec2<f32>(f32(uni.grid_size.x), f32(uni.grid_size.y));
