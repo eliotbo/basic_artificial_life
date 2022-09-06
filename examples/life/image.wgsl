@@ -114,9 +114,14 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     for (var i = -1; i < 2; i=i+1) {
         for (var j = -1; j < 2; j=j+1) {
+
+            
             
 
-            let neighbor_loc = grid_loc + vec2<i32>(i, j);
+            var neighbor_loc = grid_loc + vec2<i32>(i, j);
+
+            // torus (pacman type boundaries)
+            neighbor_loc = neighbor_loc % vec2<i32>(uni.grid_size.xy);
             let neighbor_slot_encoded: GridSlotEncoded = buffer_b.pixels[get_index(neighbor_loc)];
             var neighbor_slot = decode(neighbor_slot_encoded);
 

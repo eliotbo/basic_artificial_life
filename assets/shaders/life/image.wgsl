@@ -15,6 +15,7 @@ struct GridSlotEncoded {
     id: u32,
     mass_kind_pos_encoded: u32,
     encoded_vel: u32,
+    dummy: u32,
 }
 
 struct PixelBuffer {
@@ -56,9 +57,9 @@ var<uniform> uni: CommonUniform;
  var<storage, read_write> buffer_d: PixelBuffer;
 
 
+// TODO: is the -1 necessary?
 fn get_index( location: vec2<i32>) -> i32 {
-    // return i32(uni.iResolution.y) * i32(location.x )  + i32(location.y ) ;
-    return i32(uni.grid_size.y) * i32(location.x )  + i32(location.y ) ;
+    return (i32(uni.grid_size.y) - 0) * (i32(location.x ) + 0)  + i32(location.y )  ;
 }
 
 
@@ -126,7 +127,7 @@ fn hash2(p: vec2<f32>) -> vec2<f32> {
 // }
 
 // let empty_slot = GridSlot (vec2<f32>(0., 0.), vec2<f32>(0., 0.), 0, 0, 0);
-let empty_encoded_slot = GridSlotEncoded (0u, 0u, 0u);
+let empty_encoded_slot = GridSlotEncoded (0u, 0u, 0u, 0u);
 
 
 let max_vel = 0.5;
@@ -177,7 +178,7 @@ fn decode(grid_slot_encoded: GridSlotEncoded) -> GridSlot {
 fn encode(slot: GridSlot) -> GridSlotEncoded {
 
     if (slot.mass == 0u) {
-        return GridSlotEncoded(0u, 0u, 0u);
+        return GridSlotEncoded(0u, 0u, 0u, 0u);
     }
 
     var encoded: u32 = 0u;
@@ -198,7 +199,7 @@ fn encode(slot: GridSlot) -> GridSlotEncoded {
 
     var encoded_vel: u32 = u32(nvel.x * u16max) | ((u32(nvel.y * u16max)) << 16u);
 
-    return GridSlotEncoded( slot.id, encoded, encoded_vel);
+    return GridSlotEncoded( slot.id, encoded, encoded_vel, 0u);
 }
 
 
@@ -333,9 +334,14 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     for (var i = -1; i < 2; i=i+1) {
         for (var j = -1; j < 2; j=j+1) {
+
+            
             
 
-            let neighbor_loc = grid_loc + vec2<i32>(i, j);
+            var neighbor_loc = grid_loc + vec2<i32>(i, j);
+
+            // torus (pacman type boundaries)
+            neighbor_loc = neighbor_loc % vec2<i32>(uni.grid_size.xy);
             let neighbor_slot_encoded: GridSlotEncoded = buffer_b.pixels[get_index(neighbor_loc)];
             var neighbor_slot = decode(neighbor_slot_encoded);
 

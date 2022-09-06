@@ -14,6 +14,7 @@ struct GridSlotEncoded {
     id: u32,
     mass_kind_pos_encoded: u32,
     encoded_vel: u32,
+    dummy: u32,
 }
 
 struct PixelBuffer {
@@ -55,9 +56,9 @@ var<uniform> uni: CommonUniform;
  var<storage, read_write> buffer_d: PixelBuffer;
 
 
+// TODO: is the -1 necessary?
 fn get_index( location: vec2<i32>) -> i32 {
-    // return i32(uni.iResolution.y) * i32(location.x )  + i32(location.y ) ;
-    return i32(uni.grid_size.y) * i32(location.x )  + i32(location.y ) ;
+    return (i32(uni.grid_size.y) - 0) * (i32(location.x ) + 0)  + i32(location.y )  ;
 }
 
 

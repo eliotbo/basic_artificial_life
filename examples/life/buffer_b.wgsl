@@ -37,7 +37,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     if (slot.mass > 0u) {
 
-        let dummy_delta = vec2<f32>(0.015, 0.0);
+        let dummy_delta = vec2<f32>(0.0, 0.05);
 
         slot.pos = slot.pos + dummy_delta ;
 
@@ -49,23 +49,31 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
         // find the new grid location if the pos is outside of the 0 to 1 range
         if (slot.pos.x > 1.0) {
-            new_grid_loc.x = (new_grid_loc.x + 1) % i32(uni.grid_size.x) ;
+            new_grid_loc.x = (new_grid_loc.x + 1)  ;
             slot.pos.x = slot.pos.x - 1.0;
         } 
 
         if (slot.pos.x < 0.0) {
-            new_grid_loc.x = new_grid_loc.x - 1;
+            new_grid_loc.x = (new_grid_loc.x - 1);
             slot.pos.x = 1.0 + slot.pos.x;
         } 
         if (slot.pos.y < 0.0) {
-            new_grid_loc.y = new_grid_loc.y - 1;
+            new_grid_loc.y = (new_grid_loc.y - 1) ;
             slot.pos.y = 1.0 + slot.pos.y;
         } 
         if (slot.pos.y > 1.0) {
-            new_grid_loc.y = new_grid_loc.y + 1;
+            new_grid_loc.y = (new_grid_loc.y + 1);
             slot.pos.y = slot.pos.y - 1.0;
         }
 
+        // new_grid_loc = new_grid_loc % (vec2<i32>(uni.grid_size.xy) - 3);
+
+        
+        // new_grid_loc.x = new_grid_loc.x % (i32(uni.grid_size.x) - 0);
+        // new_grid_loc.y = new_grid_loc.y % (i32(uni.grid_size.y) - 0);
+        //
+        // torus (pacman type boundaries)
+        new_grid_loc = new_grid_loc % vec2<i32>(uni.grid_size.xy);
 
 
         buffer_b.pixels[get_index(new_grid_loc)] = encode(slot);  

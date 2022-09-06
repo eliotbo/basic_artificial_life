@@ -10,16 +10,17 @@ fn main() {
 
     app.insert_resource(ClearColor(Color::GRAY))
         .insert_resource(WindowDescriptor {
-            width: 960.,
-            height: 600.,
+            width: 1600.,
+            height: 800.,
             cursor_visible: true,
-            position: WindowPosition::At(Vec2::new(500.0, 400.0)),
+            // position: WindowPosition::At(Vec2::new(500.0, 400.0)),
+            position: WindowPosition::At(Vec2::new(50.0, 40.0)),
             // present_mode: PresentMode::Immediate, // uncomment for unthrottled FPS
             ..default()
         })
         .insert_resource(ShadertoyCanvas {
-            width: 960. as u32,
-            height: 600.0 as u32,
+            width: 1600. as u32,
+            height: 800.0 as u32,
             borders: 0.0,
             position: Vec3::new(0.0, 0.0, 0.0),
         })
