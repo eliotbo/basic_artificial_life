@@ -13,6 +13,7 @@ fn main() {
             width: 960.,
             height: 600.,
             cursor_visible: true,
+            position: WindowPosition::At(Vec2::new(500.0, 400.0)),
             // present_mode: PresentMode::Immediate, // uncomment for unthrottled FPS
             ..default()
         })

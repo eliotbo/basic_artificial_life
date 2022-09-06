@@ -4,6 +4,7 @@
 
 struct GridSlot {
     pos: vec2<f32>,
+    vel: vec2<f32>,
     id: u32,
     mass: u32,
     kind: u32,
@@ -12,6 +13,7 @@ struct GridSlot {
 struct GridSlotEncoded {
     id: u32,
     mass_kind_pos_encoded: u32,
+    encoded_vel: u32,
 }
 
 struct PixelBuffer {
@@ -53,8 +55,13 @@ var<uniform> uni: CommonUniform;
  var<storage, read_write> buffer_d: PixelBuffer;
 
 
-fn get_index( location: vec2<i32> ) -> i32 {
+fn get_index( location: vec2<i32>) -> i32 {
     // return i32(uni.iResolution.y) * i32(location.x )  + i32(location.y ) ;
     return i32(uni.grid_size.y) * i32(location.x )  + i32(location.y ) ;
 }
 
+
+// fn get_image_index( location: vec2<i32>) -> i32 {
+//     return i32(uni.iResolution.y) * i32(location.x )  + i32(location.y ) ;
+//     // return i32(uni.grid_size.y) * i32(location.x )  + i32(location.y ) ;
+// }

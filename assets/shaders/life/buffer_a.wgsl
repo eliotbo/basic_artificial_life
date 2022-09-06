@@ -4,6 +4,7 @@
 
 struct GridSlot {
     pos: vec2<f32>,
+    vel: vec2<f32>,
     id: u32,
     mass: u32,
     kind: u32,
@@ -12,6 +13,7 @@ struct GridSlot {
 struct GridSlotEncoded {
     id: u32,
     mass_kind_pos_encoded: u32,
+    encoded_vel: u32,
 }
 
 struct PixelBuffer {
@@ -53,11 +55,16 @@ var<uniform> uni: CommonUniform;
  var<storage, read_write> buffer_d: PixelBuffer;
 
 
-fn get_index( location: vec2<i32> ) -> i32 {
+fn get_index( location: vec2<i32>) -> i32 {
     // return i32(uni.iResolution.y) * i32(location.x )  + i32(location.y ) ;
     return i32(uni.grid_size.y) * i32(location.x )  + i32(location.y ) ;
 }
 
+
+// fn get_image_index( location: vec2<i32>) -> i32 {
+//     return i32(uni.iResolution.y) * i32(location.x )  + i32(location.y ) ;
+//     // return i32(uni.grid_size.y) * i32(location.x )  + i32(location.y ) ;
+// }
 
 
 
@@ -79,10 +86,28 @@ fn hash2(p: vec2<f32>) -> vec2<f32> {
 
 
 
+// struct GridSlot {
+//     pos: vec2<f32>,
+//     vel: vec2<f32>,
+//     id: u32,
+//     mass: u32,
+//     kind: u32,
+// }
+
+// struct GridSlotEncoded {
+//     id: u32,
+//     mass_kind_pos_encoded: u32,
+//     encoded_vel: u2,
+// }
+
+// let empty_slot = GridSlot (vec2<f32>(0., 0.), vec2<f32>(0., 0.), 0, 0, 0);
+let empty_encoded_slot = GridSlotEncoded (0u, 0u, 0u);
 
 
-
+let max_vel = 0.5;
 let u8max = 255.0;
+let u16max = 65535.0;
+let u32max = 4294967295.0;
 
 fn decode(grid_slot_encoded: GridSlotEncoded) -> GridSlot {
 
@@ -96,10 +121,30 @@ fn decode(grid_slot_encoded: GridSlotEncoded) -> GridSlot {
     let posx = (encoded >> 16u) & 0xFFu ;
     let posy = (encoded >> 24u) & 0xFFu ;
 
-    let pos = vec2<f32>(f32(posx) / u8max, f32(posy) / u8max);
+    // let pos = vec2<f32>(
+    //         f32(posx) / u8max * f32(uni.grid_size.x), 
+    //         f32(posy) / u8max * f32(uni.grid_size.y)
+    //     ); 
+
+    let pos = vec2<f32>(
+        f32(posx) / u8max , 
+        f32(posy) / u8max 
+    ); 
 
 
-    let p = GridSlot( pos, id, mass,  kind);
+    let encoded_vel = grid_slot_encoded.encoded_vel;
+    let velx = (encoded_vel >> 0u) & 0xFFFFu;
+    let vely = (encoded_vel >> 16u) & 0xFFFFu;
+
+    // let vel = vec2<f32>(f32(velx) / u16max, f32(vely) / u16max) ;
+
+    let vel = vec2<f32>(
+        (f32(velx)  / u16max - 0.5) * 2.0,
+        (f32(vely)  / u16max - 0.5) * 2.0,
+    ) * max_vel;
+
+
+    let p = GridSlot( pos, vel, id, mass,  kind);
 
     return p;
 }
@@ -107,7 +152,7 @@ fn decode(grid_slot_encoded: GridSlotEncoded) -> GridSlot {
 fn encode(slot: GridSlot) -> GridSlotEncoded {
 
     if (slot.mass == 0u) {
-        return GridSlotEncoded(0u, 0u);
+        return GridSlotEncoded(0u, 0u, 0u);
     }
 
     var encoded: u32 = 0u;
@@ -115,15 +160,37 @@ fn encode(slot: GridSlot) -> GridSlotEncoded {
     encoded |= (slot.mass & 0xFFu) << 0u;
     encoded |= (slot.kind & 0xFFu) << 8u;
 
-    let x = u32(slot.pos.x * u8max);
-    let y = u32(slot.pos.y * u8max);
+    // let x = u32(slot.pos.x * u8max / f32(uni.grid_size.x));
+    // let y = u32(slot.pos.y * u8max / f32(uni.grid_size.y));
+
+    let x = u32(slot.pos.x * u8max );
+    let y = u32(slot.pos.y * u8max );
 
     encoded |= (x & 0xFFu) << 16u;
     encoded |= (y & 0xFFu) << 24u;
 
-    return GridSlotEncoded( slot.id, encoded);
+    let nvel = (slot.vel / max_vel + 1.0) / 2.0; // normalize to 0..1
+
+    var encoded_vel: u32 = u32(nvel.x * u16max) | ((u32(nvel.y * u16max)) << 16u);
+
+    return GridSlotEncoded( slot.id, encoded, encoded_vel);
 }
 
+
+// fn update_pos(
+//     slot: ptr<function, GridSlot>, 
+//     delta: vec2<f32>, 
+//     grid_location: vec2<i32>
+// ) -> vec2<i32> {
+
+        
+//         (*slot).pos = (*slot).pos + delta ;
+//         let new_grid_location = floor((*slot).pos)
+
+
+//         return new_grid_location;
+
+// }
 
 // grid size = 
 
@@ -131,34 +198,126 @@ fn encode(slot: GridSlot) -> GridSlotEncoded {
 
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
-    let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
-    let buffer_location_index = get_index(vec2<i32>(invocation_id.xy));
+    let grid_location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
+    // let buffer_grid_location_index = get_index(vec2<i32>(invocation_id.xy));
 
+
+    var i_dont_get_it = true;
 
     # ifdef INIT
-        let rand = hash32(vec2<f32>(location + 1000) );
-        // let rand = noise2d(vec2<f32>(location + 1000));
+        let rand = hash32(vec2<f32>(grid_location + 1000) );
+        // let rand = noise2d(vec2<f32>(grid_location + 1000));
 
         var color = vec4<f32>(0.1, 0.2, 0.3, 1.0);
-        let quoi = &buffer_a.pixels[get_index(location)] ;
+        let quoi = &buffer_a.pixels[get_index(grid_location)] ;
+
+        let expansion_coefficient = uni.iResolution.x / f32(uni.grid_size.x);
 
         if (rand.x > 0.9) {
-            let quoi = &buffer_a.pixels[get_index(location)] ;
-            let rand_pos = hash32(vec2<f32>(location)).xy;
+            let quoi = &buffer_a.pixels[get_index(grid_location)] ;
+
+            // let rand_pos = hash32(vec2<f32>(grid_location)).xy 
+            //     * vec2<f32>(f32(uni.grid_size.x), f32(uni.grid_size.y));
+
+            // let grid = vec2<f32>(f32(uni.grid_size.x), f32(uni.grid_size.y));
+
+            // let rand_pos = vec2<f32>(grid_location) + hash32(vec2<f32>(grid_location)).xy;
+            var rand_pos = hash32(vec2<f32>(grid_location)).xy;
+            rand_pos = clamp(rand_pos, vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0));
+
+            // let rand_pos = hash32(vec2<f32>(grid_location)).xy 
+            //     * vec2<f32>(f32(uni.iResolution.x), f32(uni.iResolution.y));
+
             // let pos = vec2<f32>(0.0, 0.0);
-            var rand_kind = hash32(vec2<f32>(location + 100)).x;
+            var rand_kind = hash32(vec2<f32>(grid_location + 100)).x;
             rand_kind = floor(rand_kind * 6.0);
-            *quoi =  encode(GridSlot(rand_pos, 1u, 1u, u32(rand_kind)) );
+
+            let rand_vel = (hash32(vec2<f32>(grid_location + 200)).xy - 0.5) * 2. * max_vel;
+
+            // generate random u32 for id
+            let id = u32(hash32(vec2<f32>(grid_location + 300)).x * u32max); 
+
+
+
+            *quoi =  encode(GridSlot(rand_pos, rand_vel, id, 1u, u32(rand_kind)) );
                        
             
         } else {
-            *quoi =  encode(GridSlot(vec2<f32>(0., 0.), 0u, 0u, 0u) );
+            *quoi =  empty_encoded_slot;
         }
 
+        i_dont_get_it = false;
 
 
-        return;
+    // #else
+
+        // let encoded_b = &buffer_b.pixels[get_index(grid_location)];
+        // buffer_a.pixels[get_index(grid_location)] = *encoded_b;
+
+        // let quoi = &buffer_a.pixels[get_index(grid_location)] ;
+
+        // var slot = decode(*quoi);
+        // let new_pos = slot.pos + slot.vel / 1000000.0 ;
+
+        // var new_grid_location = grid_location;
+
+        // if (new_pos.x < 0.) {
+        //     new_grid_location = vec2<i32>(grid_location.x - 1, grid_location.y);
+        //     slot.pos.x = 1. + new_pos.x;
+        // }
+        
+        // if (new_pos.x > 1.) {
+        //     new_grid_location = vec2<i32>(grid_location.x + 1, grid_location.y);
+        //     slot.pos.x = new_pos.x - 1.;
+        // }
+         
+        // if (new_pos.y < 0.) {
+        //     new_grid_location = vec2<i32>(grid_location.x, grid_location.y - 1);
+        //     slot.pos.y = 1. + new_pos.y;
+        // }
+
+        // if (new_pos.y > 1.) {
+        //     new_grid_location = vec2<i32>(grid_location.x, grid_location.y + 1);
+        //     slot.pos.y = new_pos.y - 1.;
+        // }
+
+        // if (new_pos.x < 0.) || (new_pos.x > 1.) || (new_pos.y < 0.) || (new_pos.y > 1.) {
+        //     let new_quoi = &buffer_a.pixels[get_index(new_grid_location)];
+        //     *new_quoi = encode(slot);
+
+
+        //     // *quoi = empty_encoded_slot;
+
+
+
+        // } else {
+        //     slot.pos = new_pos;
+        //     *quoi = encode(slot);
+
+            
+        // }
+
+        
+
     # endif
+
+    if i_dont_get_it {
+        let encoded_b = &buffer_b.pixels[get_index(grid_location)];
+        buffer_a.pixels[get_index(grid_location)] = *encoded_b;
+    }
+
+
+
+
+    
+
+    // neighbor_slot.pos = new_pos;
+
+    // let new_encoded_slot = encode(neighbor_slot);
+
+    // buffer_a.pixels[get_index(neighbor_loc)] = new_encoded_slot;
+
+
 
     
 

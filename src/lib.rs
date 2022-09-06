@@ -47,7 +47,7 @@ use bevy::{
 
 use crevice::std140::AsStd140;
 // use crevice::std430::AsStd430;
-use std::{borrow::Cow, num::NonZeroU64};
+use std::{borrow::Cow, char::MAX, num::NonZeroU64};
 
 use bevy::{app::ScheduleRunnerSettings, utils::Duration};
 
@@ -287,9 +287,12 @@ fn format_and_save_shader(example: &str, buffer_type: &str, include_debugger: bo
 // uniform vec4      iDate;                 // (year, month, day, time in seconds)
 // uniform float     iSampleRate;           // sound sample rate (i.e., 44100)
 
+const MAX_VEL: f32 = 100.0;
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct GridSlot {
-    pub position: Vec2,
+    pub position: Vec2, // position range is 0 to 1. --- 0 is top left of a grid slot
+    pub velocity: Vec2, // velocity range is -MAX_VEL to MAX_VEL
     pub id: u32,
     pub mass: u8,
     pub kind: u8,
@@ -302,9 +305,11 @@ pub struct GridSlotEncoded {
     // pub pos: crevice::std140::Vec2,
     pub id: u32,
     pub mass_kind_encoded: u32,
+    pub velocity_encoded: u32,
 }
 
 impl Into<GridSlot> for GridSlotEncoded {
+    // decode
     fn into(self) -> GridSlot {
         //
         //
@@ -315,11 +320,20 @@ impl Into<GridSlot> for GridSlotEncoded {
         let posx = ((self.mass_kind_encoded >> 16) & 0xFF) as u8;
         let posy = ((self.mass_kind_encoded >> 24) & 0xFF) as u8;
 
+        let velx = ((self.velocity_encoded >> 0) & 0xFFFF) as u16;
+        let vely = ((self.velocity_encoded >> 16) & 0xFFFF) as u16;
+
         // convert posx and posy to a vec2
         let pos = Vec2::new(posx as f32 / u8::MAX as f32, posy as f32 / u8::MAX as f32);
 
+        let vel = Vec2::new(
+            (velx as f32 / u16::MAX as f32 - 0.5) * 2.0,
+            (vely as f32 / u16::MAX as f32 - 0.5) * 2.0,
+        ) * MAX_VEL;
+
         GridSlot {
             position: pos,
+            velocity: vel,
             id: self.id,
             mass,
             kind,
@@ -327,6 +341,7 @@ impl Into<GridSlot> for GridSlotEncoded {
     }
 }
 
+// encode
 impl Into<GridSlotEncoded> for GridSlot {
     fn into(self) -> GridSlotEncoded {
         let mut encoded = (self.kind as u32) << 8 | (self.mass as u32) << 0;
@@ -337,9 +352,15 @@ impl Into<GridSlotEncoded> for GridSlot {
 
         encoded |= (x as u32) << 16 | (y as u32) << 24;
 
+        let normalized_vel = (self.velocity / MAX_VEL + 1.0) / 2.0;
+
+        let mut velocity_encoded: u32 = (normalized_vel.x * u16::MAX as f32) as u32;
+        velocity_encoded |= ((normalized_vel.y * u16::MAX as f32) as u32) << 16;
+
         GridSlotEncoded {
             id: self.id,
             mass_kind_encoded: encoded,
+            velocity_encoded,
         }
     }
 }
@@ -349,6 +370,7 @@ impl Default for GridSlotEncoded {
         Self {
             mass_kind_encoded: 0,
             id: 0,
+            velocity_encoded: 0,
             // pos: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
         }
     }
@@ -370,7 +392,8 @@ impl GridSlotEncoded {
 fn test_particle_slot_encoding() {
     let slot = GridSlot {
         // occupied: false,
-        position: Vec2::new(0.3, 5.6),
+        position: Vec2::new(0.3, 0.22),
+        velocity: Vec2::new(11.0, 56.0),
         id: 1654987,
         mass: 15,
         kind: 69,
@@ -379,7 +402,12 @@ fn test_particle_slot_encoding() {
     let slot_meta: GridSlotEncoded = slot.into();
     let slot_decoded: GridSlot = slot_meta.into();
 
-    assert_eq!(slot, slot_decoded);
+    assert_eq!(slot.mass, slot_decoded.mass);
+    assert_eq!(slot.kind, slot_decoded.kind);
+    assert_eq!(slot.id, slot_decoded.id);
+    assert!((slot.position - slot_decoded.position).length() < 0.01);
+    assert!((slot.velocity - slot_decoded.velocity).length() < 0.01);
+    // assert_eq!(slot.velocity, slot_decoded.velocity);
 }
 
 pub struct Buffers {
