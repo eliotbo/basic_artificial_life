@@ -22,9 +22,9 @@ let aqua = vec4<f32>(0.231, 0.957, 0.984, 1.0);
 
 // let c5 = vec4<f32>(202.0 / 255.0, 255.0 / 255.0, 138.0 / 255.0, 1.0);
 let green = vec4<f32>(0.792, 1.0, 0.541, 1.0);
-
-
 let brown = vec4<f32>(0.498, 0.41, 0.356, 1.0);
+let beige = vec4<f32>(0.839, 0.792, 0.596, 1.0);
+let dark_purple = vec4<f32>(0.447, 0.098, 0.353, 1.0);
 
 // let red = vec4<f32>(1.0, 0.0, 0.0, 1.0);
 // let green = vec4<f32>(0.0, 1.0, 0.0, 1.0);
@@ -58,8 +58,8 @@ fn ball_sdf(
         (vec2<f32>(grid_loc) ) * coef 
         + relative_ball_position * coef;
 
-    let ball_radius = coef/4.2;
-    let s = sdCircle(vec2<f32>(location), absolute_ball_position, ball_radius);
+    let ball_radius_co = coef * ball_radius;
+    let s = sdCircle(vec2<f32>(location), absolute_ball_position, ball_radius_co);
 
     return s;
 
@@ -84,17 +84,27 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
 
     // var color = vec4<f32>(0.25, 0.8, 0.8, 1.0);
-    var color = bg * 2.2;
+    var color = dark_purple / 1.3;
     color.a = 1.0;
 
 
 
     let co = expansion_coefficient;
     let co2 = co / 1.;
+
+    // let sx = sdXSegment((float_loc.x + 0.5) % co, co2);
+    // let sy = sdXSegment((float_loc.y + 0.5) % co, co2);
+    // color = mix(color, beige, 1.0 - smoothstep(0.0, 3.0, sx));
+    // color = mix(color, beige, 1.0 - smoothstep(0.0, 3.0, sy));
+
+    var grid_color = dark_purple * 1.3;
+    grid_color.a = 1.0;
     let sx = sdXSegment(float_loc.x % co, co2);
     let sy = sdXSegment(float_loc.y % co, co2);
-    color = mix(color, gray, 1.0 - smoothstep(0.0, 3.0, sx));
-    color = mix(color, gray, 1.0 - smoothstep(0.0, 3.0, sy));
+    color = mix(color, grid_color, 1.0 - smoothstep(0.0, 3.0, sx));
+    color = mix(color, grid_color, 1.0 - smoothstep(0.0, 3.0, sy));
+
+
 
 
 
@@ -108,7 +118,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // 3) add collision detection
     // 
 
-     let ball_radius = expansion_coefficient * 0.25;
+     let ball_radius_co = expansion_coefficient * ball_radius;
 
     //  let ball_radius = 20.;
 
@@ -122,6 +132,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
             // torus (pacman type boundaries)
             neighbor_loc = neighbor_loc % vec2<i32>(uni.grid_size.xy);
+
             let neighbor_slot_encoded: GridSlotEncoded = buffer_b.pixels[get_index(neighbor_loc)];
             var neighbor_slot = decode(neighbor_slot_encoded);
 
@@ -132,7 +143,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
                 
                 let ball_position = (vec2<f32>(neighbor_loc) + neighbor_slot.pos ) *   expansion_coefficient;
 
-                let s = sdCircle(vec2<f32>(location) , ball_position, ball_radius);
+                let s = sdCircle(vec2<f32>(location) , ball_position, ball_radius_co);
 
                 var ball_color = pink;
 
@@ -146,7 +157,8 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
                 }
 
-                color = mix(color, ball_color, 1.0 - smoothstep(-0.0, 1.0, s));
+                color = mix(color, ball_color, 1.0 - smoothstep(-2.0, 0.0, s));
+                color = mix(color, gray, 1.0 - smoothstep(-2.0, 3.0, abs(s)));
             }
         }
     }

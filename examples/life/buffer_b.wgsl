@@ -4,43 +4,57 @@
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let grid_location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
 
-    // // at the beginning of the simulation, delete all neighboring particles
-    // if uni.iFrame == 2.0 {
-    //     for (var i = -1; i < 2; i=i+1) {
-    //         for (var j = -1; j < 2; j=j+1) {
+
+    let particle_slot_encoded: GridSlotEncoded = buffer_b.pixels[get_index(grid_location)];
+    var particle_slot = decode(particle_slot_encoded);
+
+    // at the beginning of the simulation, delete all neighboring particles
+    if uni.iFrame == 60.0 {
+        for (var i = -1; i < 2; i=i+1) {
+            for (var j = -1; j < 2; j=j+1) {
                 
-    //             if (i == 0 && j == 0) {
-    //                 continue;
-    //             }
+                if (i == 0 && j == 0) {
+                    continue;
+                }
 
-    //             let neighbor_loc = grid_location + vec2<i32>(i, j);
-    //             let neighbor_slot_encoded: GridSlotEncoded = buffer_b.pixels[get_index(neighbor_loc)];
-    //             var neighbor_slot = decode(neighbor_slot_encoded);
+                let neighbor_loc = grid_location + vec2<i32>(i, j);
+                let neighbor_slot_encoded: GridSlotEncoded = buffer_b.pixels[get_index(neighbor_loc)];
+                var neighbor_slot = decode(neighbor_slot_encoded);
 
-    //             if (neighbor_slot.mass > 0u) {
-    //                 // slot.alive_neighbors = slot.alive_neighbors + 1;
-    //                 buffer_a.pixels[get_index(grid_location)] = empty_encoded_slot;
-    //                 buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
+                if (neighbor_slot.mass > 0u) {
 
-    //                 // do_not_delete = false;
+                    let neighbor_rel_pos = neighbor_slot.pos
+                        + vec2<f32>(f32(i), f32(j));
+                    // let particle_pos = particle_slot.position;
 
-    //                 return;
-    //             }
-    //         }
-    //     }
-    // }
+                    
+
+                    // slot.alive_neighbors = slot.alive_neighbors + 1;
+                    if (length(neighbor_rel_pos - particle_slot.pos ) < 2. * ball_radius ) {
+                        buffer_a.pixels[get_index(grid_location)] = empty_encoded_slot;
+                        buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
+
+                        // do_not_delete = false;
+
+                        return;
+                    }
+                }
+            }
+        }
+    }
         
 
 
     let slot_encoded = buffer_a.pixels[get_index(grid_location)];
     var slot = decode(slot_encoded);
 
+    // estimate the updated position if there is a particle in the current grid_location
     if (slot.mass > 0u) {
 
-        let dummy_delta = vec2<f32>(-0.1, -0.05);
+        // let dummy_delta = vec2<f32>(-0.1, -0.05);
 
-        // slot.pos = slot.pos + dummy_delta ;
-        slot.pos = slot.pos + slot.vel ;
+
+        // slot.pos = slot.pos + slot.vel ;
 
         var new_grid_loc = grid_location;
 
@@ -82,14 +96,6 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
             } 
             slot.pos.y = 1.0 + slot.pos.y;
         } 
-
-
-        
-
-        // 
-
-        // clamp 
-        // new_grid_loc = clamp(vec2<i32>(0, 0), vec2<i32>(uni.grid_size.xy), new_grid_loc); 
 
 
         buffer_b.pixels[get_index(new_grid_loc)] = encode(slot);  

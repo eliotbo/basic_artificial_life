@@ -34,7 +34,7 @@ fn hash2(p: vec2<f32>) -> vec2<f32> {
 // let empty_slot = GridSlot (vec2<f32>(0., 0.), vec2<f32>(0., 0.), 0, 0, 0);
 let empty_encoded_slot = GridSlotEncoded (0u, 0u, 0u, 0u);
 
-
+let ball_radius = 0.5;
 let max_vel = 0.5;
 let u8max = 255.0;
 let u16max = 65535.0;
