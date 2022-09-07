@@ -17,7 +17,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         let expansion_coefficient = uni.iResolution.x / f32(uni.grid_size.x);
 
         // generate a particle if the random number allows it
-        if (rand.x > 0.7) {
+        if (rand.x > 0.95) {
             let quoi = &buffer_a.pixels[get_index(grid_location)];
 
             // random position within the grid cell
@@ -30,7 +30,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
             rand_kind = floor(rand_kind * 4.0);
 
             // random initial velocity
-            let rand_vel = (hash32(vec2<f32>(grid_location + 200)).xy - 0.5) * 2. * max_vel / 3.0;
+            let rand_vel = (hash32(vec2<f32>(grid_location + 200)).xy - 0.5) * 2. * max_vel ;
 
             // generate random u32 for id
             let id = u32(hash32(vec2<f32>(grid_location + 300)).x * u32max); 

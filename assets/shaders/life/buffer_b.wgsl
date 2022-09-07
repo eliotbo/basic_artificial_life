@@ -148,15 +148,12 @@ let blue = vec4<f32>(0.082, 0.957, 0.933, 1.0);
 
 // let empty_slot = GridSlot (vec2<f32>(0., 0.), vec2<f32>(0., 0.), 0, 0, 0);
 let empty_encoded_slot = GridSlotEncoded (0u, 0u, 0u, 0u);
-
-let gravity = 0.2;
-let max_trail_intensity = 2.0;
-let trail_decay = 0.95;
-let ball_radius = 0.5;
-let max_vel = 0.99;
 let u8max = 255.0;
 let u16max = 65535.0;
 let u32max = 4294967295.0;
+
+let max_vel = 0.1;
+
 
 fn decode(grid_slot_encoded: GridSlotEncoded) -> GridSlot {
 
@@ -226,59 +223,198 @@ fn encode(slot: GridSlot) -> GridSlotEncoded {
 }
 
 
-// fn update_pos(
-//     slot: ptr<function, GridSlot>, 
-//     delta: vec2<f32>, 
-//     grid_location: vec2<i32>
-// ) -> vec2<i32> {
+
+//
+//
+//
+//
+let vel_damping = 0.999;
+// let gravity = 0.02;
+let gravity = 0.0;
+let max_trail_intensity = 2.0;
+let trail_decay = 0.95;
+let ball_radius = 0.5;
 
 
-    // var new_grid_loc = grid_location;
+// checks whether a point has moved out of a grid cell or has hit a wall
+fn update_pos(
+    slot_in: ptr<function, GridSlot>, 
+    grid_location: vec2<i32>
+) -> vec2<i32> {
 
-    // if (slot.pos.x > 1.0) || (slot.pos.x < 0.0) || (slot.pos.y > 1.0) || (slot.pos.y < 0.0) {
-    //     buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
-    // }
-
-    // // find the new grid location if the pos is outside of the 0 to 1 range
-    // if (slot.pos.x > 1.0) {
-    //     new_grid_loc.x = (new_grid_loc.x + 1)  ;
-    //     slot.pos.x = slot.pos.x - 1.0;
-
-    //     // torus (pacman type boundaries)
-    //     new_grid_loc.x = new_grid_loc.x % (i32(uni.grid_size.x) );
-    // } 
-
-    // if (slot.pos.y > 1.0) {
-    //     new_grid_loc.y = (new_grid_loc.y + 1);
-    //     slot.pos.y = slot.pos.y - 1.0;
-
-    //     new_grid_loc = new_grid_loc % vec2<i32>(uni.grid_size.xy);
-    // }
+    var slot: GridSlot  = *slot_in;
+    var new_grid_loc = grid_location;
 
 
-    // if (slot.pos.x < 0.0) {
-    //     new_grid_loc.x = (new_grid_loc.x - 1);
-    //     if (new_grid_loc.x < 0) {
-    //         new_grid_loc.x = i32(uni.grid_size.x) - 1;
-    //     } 
+    // find the new grid location if the pos is outside of the 0 to 1 range
+    if (slot.pos.x > 1.0) {
+        // wall collision
+        if (new_grid_loc.x == i32(uni.grid_size.x) - 1) {
+            slot.pos.x = 0.99;
+            slot.vel.x = -slot.vel.x;
+        } else {
+            let num_grid_cells = floor(slot.pos.x);
+            new_grid_loc.x = new_grid_loc.x + i32(num_grid_cells);
+            slot.pos.x = slot.pos.x - num_grid_cells;
+        }
+    } 
 
-    //     slot.pos.x = 1.0 + slot.pos.x;
-    // } 
+    if (slot.pos.y > 1.0) {
+        // wall collision
+        if (new_grid_loc.y == i32(uni.grid_size.y) - 1) {
+            slot.pos.y = 0.99;
+            slot.vel.y = -slot.vel.y;
 
-    // if (slot.pos.y < 0.0) {
-    //     new_grid_loc.y = (new_grid_loc.y - 1) ;
+        } else {
+            let num_grid_cells = floor(slot.pos.y);
+            new_grid_loc.y = new_grid_loc.y + i32(num_grid_cells);
+            slot.pos.y = slot.pos.y - num_grid_cells;
+        }
 
-    //     if (new_grid_loc.y < 0) {
-    //         new_grid_loc.y = i32(uni.grid_size.y) - 1;
-    //     } 
-    //     slot.pos.y = 1.0 + slot.pos.y;
-    // } 
-
+    }
 
 
-    
+    if (slot.pos.x < 0.0) {
+        if (new_grid_loc.x == 0) {
+            slot.pos.x = 0.01;
+            slot.vel.x = -slot.vel.x;
+        } else {
 
+            let num_grid_cells = 1.0 + floor(-slot.pos.x);
+            new_grid_loc.x = new_grid_loc.x - i32(num_grid_cells);
+            slot.pos.x = slot.pos.x + num_grid_cells;
+        }
+    } 
+
+    if (slot.pos.y < 0.0) {
+        if (new_grid_loc.y == 0) {
+            slot.pos.y = 0.01;
+            slot.vel.y = -slot.vel.y;
+        } else {
+
+            let num_grid_cells = 1.0 + floor(-slot.pos.y);
+            new_grid_loc.y = new_grid_loc.y - i32(num_grid_cells);
+            slot.pos.y = slot.pos.y + num_grid_cells;
+        }
+    } 
+
+    *slot_in = slot; 
+
+    return new_grid_loc;
+
+
+}
+
+// // compute elastic collisions between two balls
+// fn collide(
+//     slot_a: ptr<function, GridSlot>, 
+//     // grid_pos_a: vec2<i32>,
+//     slot_b: ptr<function, GridSlot>,
+//     // grid_pos_b: vec2<i32>,
+//     delta: vec2<f32>
+// ) {
+
+//     var a: GridSlot = *slot_a;
+//     var b: GridSlot = *slot_b;
+
+//     // let delta = b.pos - a.pos;
+
+//     let dist = length(delta);
+//     let overlap = ball_radius * 2.0 - dist;
+
+//     if (overlap > 0.0) {
+
+
+
+//         let dir = normalize(delta);
+//         let a_vel = a.vel;
+//         let b_vel = b.vel;
+
+//         a.pos = a.pos + dir * overlap * 0.5;
+//         b.pos = b.pos - dir * overlap * 0.5;
+
+//         let a_vel_n = dot(a_vel, dir);
+//         let b_vel_n = dot(b_vel, dir);
+
+//         let a_vel_t = a_vel - dir * a_vel_n;
+//         let b_vel_t = b_vel - dir * b_vel_n;
+
+//         let a_vel_n_new =   b_vel_n;
+//         let b_vel_n_new =   a_vel_n;
+
+//         a.vel = a_vel_t + dir * a_vel_n_new;
+//         b.vel = b_vel_t + dir * b_vel_n_new;
+
+//         *slot_a = a;
+//         *slot_b = b;
+//     }
 // }
+
+// compute elastic collisions between two balls
+fn collide(
+    slot_a: ptr<function, GridSlot>, 
+    a_loc: vec2<i32>,
+    slot_b: ptr<function, GridSlot>,
+    b_loc: vec2<i32>,
+
+) {
+
+    var a: GridSlot = *slot_a;
+    var b: GridSlot = *slot_b;
+
+    // let delta = b.pos - a.pos;
+
+    var a_pos = a.pos + vec2<f32>(a_loc);
+    var b_pos = b.pos + vec2<f32>(b_loc);
+
+
+
+    let delta = a_pos - b_pos;
+
+    let dist = length(delta);
+    let overlap = ball_radius * 2.0 - dist;
+
+    if (dist < ball_radius * 2.0) {
+
+        // let m1 = f32(a.mass);
+        // let m2 = f32(b.mass);
+
+        // let dir = normalize(delta);
+        // let a_vel = a.vel;
+        // let b_vel = b.vel;
+
+        // a_pos = a_pos + dir * overlap * 1.0;
+        // b_pos = b_pos - dir * overlap * 1.0;
+
+        // let a_vel_n = dot(a_vel, dir);
+        // let b_vel_n = dot(b_vel, dir);
+
+        // let a_vel_t = a_vel - dir * a_vel_n;
+        // let b_vel_t = b_vel - dir * b_vel_n;
+
+        // let a_vel_n_new = (a_vel_n * (m1 - m2) + 2.0 * m2 * b_vel_n) / (m1 + m2);
+        // let b_vel_n_new = (b_vel_n * (m2 - m1) + 2.0 * m1 * a_vel_n) / (m1 + m2);
+
+        // a.vel = a_vel_t + dir * a_vel_n_new;
+        // b.vel = b_vel_t + dir * b_vel_n_new;
+
+        // a.vel = clamp(a.vel, -vec2<f32>(max_vel), vec2<f32>(max_vel));
+        // b.vel = clamp(b.vel, -vec2<f32>(max_vel), vec2<f32>(max_vel));
+
+        let va = a.vel - dot(delta, a.vel - b.vel) * delta / dot(delta, delta);
+        a_pos = a_pos + normalize(delta) * overlap * 0.5;
+
+
+
+
+        a.pos = a_pos - vec2<f32>(a_loc);
+        a.vel = va;
+        // b.pos = b_pos - vec2<f32>(b_loc);
+
+        *slot_a = a;
+        // *slot_b = b;
+    }
+}
 
 // buffer_b 
 
@@ -333,156 +469,95 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // estimate the updated position if there is a particle in the current grid_location
     if (slot.mass > 0u) {
 
-        // let dummy_delta = vec2<f32>(-0.1, -0.05);
 
+        // update position and velocity
 
-        slot.vel  = slot.vel + abs(vec2<f32>( 0.0, gravity ) * uni.iTimeDelta);
+        slot.vel  = slot.vel * vel_damping + abs(vec2<f32>( 0.0, gravity ) * uni.iTimeDelta);
+
+        //
+        //
+        //
+        // clamping velocity is important to avoid encoding/decoding errors
         slot.vel = clamp(slot.vel, vec2<f32>(-max_vel), vec2<f32>(max_vel));
-
         slot.pos = slot.pos + slot.vel ;
 
-        var new_grid_loc = grid_location;
+        var new_grid_loc = update_pos(&slot, grid_location);
 
-        // if (slot.pos.x > 1.0) || (slot.pos.x < 0.0) || (slot.pos.y > 1.0) || (slot.pos.y < 0.0) {
-        //     buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
-        // }
+        let slot_abs_position = slot.pos + vec2<f32>(new_grid_loc);
 
-        // find the new grid location if the pos is outside of the 0 to 1 range
-        if (slot.pos.x > 1.0) {
-            // add wall collisions.
-            if (new_grid_loc.x == i32(uni.grid_size.x) - 1) {
-                slot.pos.x = 0.99;
-                slot.vel.x = -slot.vel.x;
-            } else {
-                // new_grid_loc.x = new_grid_loc.x + 1;
-                // slot.pos.x = slot.pos.x - 1.0;
+        var nx: i32 = -2; // first index will be -1
+        loop {
+            nx ++;
+            if (nx > 1) {  break;  }
+            
 
-                let num_grid_cells = floor(slot.pos.x);
-                new_grid_loc.x = new_grid_loc.x + i32(num_grid_cells);
-                slot.pos.x = slot.pos.x - num_grid_cells;
+            var ny: i32 = -2;
+
+            loop {
+                ny++;
+                if (ny > 1) { break; }
+            
+
+                let neighbor_loc = new_grid_loc + vec2<i32>(nx, ny);
+                let neighbor_slot_encoded: GridSlotEncoded = buffer_a.pixels[get_index(neighbor_loc)];
+                var neighbor_slot = decode(neighbor_slot_encoded);
+
+                if (neighbor_slot.mass == 0u) {
+                    continue;
+                }
+
+                // // skip with the neighboors's id is the same as the current slot
+                // if (slot.id == neighbor_slot.id) { 
+                //     continue;  
+                // } 
+
+                if ( (nx == 0) && (ny == 0) ) { 
+                    continue;  
+                } 
+
+                if (neighbor_slot.id == slot.id) { 
+                    continue;  
+                }
+
+                let neigh_new_grid_location = update_pos(&neighbor_slot, neighbor_loc);
+                
+
+
+                collide(
+                    &slot, 
+                    new_grid_loc, 
+                    &neighbor_slot, 
+                    neigh_new_grid_location, 
+                );
+
+                new_grid_loc = update_pos(&slot, new_grid_loc);
+
+
+
+                // if (length(delta_pos) < 2.0 * ball_radius) {
+                //     let delta_vec = delta_pos * (2.0 * ball_radius - length(delta_pos)) / 2.0;
+                    
+
+                //     // new_grid_loc = update_pos(&slot, delta_vec, new_grid_loc);
+                //     break;
+
+
+                //     // neighbor_slot.pos = neighbor_slot.pos - delta_pos / 2.;
+
+                // }
+
+                
             }
-        } 
-
-        if (slot.pos.y > 1.0) {
-
-            if (new_grid_loc.y == i32(uni.grid_size.y) - 1) {
-                slot.pos.y = 0.99;
-                slot.vel.y = -slot.vel.y;
-
-            } else {
-
-                let num_grid_cells = floor(slot.pos.y);
-                new_grid_loc.y = new_grid_loc.y + i32(num_grid_cells);
-                slot.pos.y = slot.pos.y - num_grid_cells;
-            }
-
+            
         }
-
-
-        if (slot.pos.x < 0.0) {
-            if (new_grid_loc.x == 0) {
-                slot.pos.x = 0.01;
-                slot.vel.x = -slot.vel.x;
-            } else {
-
-                let num_grid_cells = 1.0 + floor(-slot.pos.x);
-                new_grid_loc.x = new_grid_loc.x - i32(num_grid_cells);
-                slot.pos.x = slot.pos.x + num_grid_cells;
-            }
-        } 
-
-        if (slot.pos.y < 0.0) {
-            if (new_grid_loc.y == 0) {
-                slot.pos.y = 0.01;
-                slot.vel.y = -slot.vel.y;
-            } else {
-
-                let num_grid_cells = 1.0 + floor(-slot.pos.y);
-                new_grid_loc.y = new_grid_loc.y - i32(num_grid_cells);
-                slot.pos.y = slot.pos.y + num_grid_cells;
-            }
-        } 
-
-        // slot.pos = clamp(slot.pos, vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0));
 
         buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
         buffer_b.pixels[get_index(new_grid_loc)] = encode(slot);  
     }
 
-
-    // let boom = &buffer_b.pixels[get_index(new_grid_loc)];
-    // *boom = encode(slot);
-
-    // buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot; 
-    // buffer_b.pixels[get_index(new_grid_loc)] = encode(slot);  
     
-
-    // buffer_b.pixels[get_index(grid_location)] = encode(slot);
-
-    // if 
-
-    // var new_grid_location = update_pos(&slot, dummy_delta, grid_location);
-    // let new_grid_location = new_loc_did_change.xy;
-
-    // let slot_abs_position = slot.pos + vec2<f32>(f32(new_grid_location.x), f32(new_grid_location.y));
-
-    // let ball_radius = 0.25;
-
-    // // collision detection
-
-    // var nx: i32 = -2; // first index will be -1
-    // loop {
-    //     nx ++;
-    //     if (nx > 1) {  break;  }
-        
-
-    //     var ny: i32 = -2;
-
-    //     loop {
-    //         ny++;
-    //         if (ny > 1) { break; }
-        
-
-    //         let neighbor_loc = grid_location + vec2<i32>(nx, ny);
-    //         let neighbor_slot_encoded: GridSlotEncoded = buffer_a.pixels[get_index(neighbor_loc)];
-    //         var neighbor_slot = decode(neighbor_slot_encoded);
-
-    //         // // skip with the neighboors's id is the same as the current slot
-    //         if (slot.id == neighbor_slot.id) { 
-    //             continue;  
-    //         } 
-
-    //         // let neigh_new_grid_location = update_pos(&neighbor_slot, dummy_delta, neighbor_loc);
-            
-    //         let neighbor_abs_position = neighbor_slot.pos 
-    //             + vec2<f32>(neighbor_loc);
-
-    //         let delta_pos = slot_abs_position - neighbor_abs_position;
-
-
-    //         if (length(delta_pos) < 2.0 * ball_radius) {
-    //             let delta_vec = delta_pos * (2.0 * ball_radius - length(delta_pos)) / 2.0;
-    //             new_grid_location = update_pos(&slot, delta_vec, new_grid_location);
-    //             break;
-
-
-    //             // neighbor_slot.pos = neighbor_slot.pos - delta_pos / 2.;
-
-    //         }
-
-            
-    //     }
-        
-    // }
-
-        // buffer_b.pixels[get_index(grid_location)] = empty_encoded_slot;
-        // buffer_b.pixels[get_index(new_grid_location)] = encode(slot);        
-
-        
-           
-
-
-
+    
+    
         
 
 }

@@ -62,6 +62,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     // var color = vec4<f32>(0.25, 0.8, 0.8, 1.0);
     let background_color = vec4<f32>(0.1, 0.1, 0.1, 1.0) / 3.;
+    // let background_color = soft_gray;
     // var color = dark_purple / 4.0;
     var color = background_color;
     color.a = 1.0;
