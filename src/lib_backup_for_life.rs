@@ -71,8 +71,8 @@ pub const WORKGROUP_SIZE: u32 = 8;
 pub const WORKGROUP_SIZE_BUF: u32 = 8;
 // pub const NUM_PARTICLES_X: u32 = 240;
 // pub const NUM_PARTICLES_Y: u32 = 150;
-pub const NUM_PARTICLES_X: u32 = 1600;
-pub const NUM_PARTICLES_Y: u32 = 800;
+pub const NUM_PARTICLES_X: u32 = 160;
+pub const NUM_PARTICLES_Y: u32 = 80;
 pub const NUM_PARTICLES: usize = (NUM_PARTICLES_X * NUM_PARTICLES_Y) as usize;
 
 pub const WINDOW_WIDTH: f32 = 1600.;
@@ -292,215 +292,89 @@ fn format_and_save_shader(example: &str, buffer_type: &str, include_debugger: bo
 
 const MAX_VEL: f32 = 100.0;
 
-// #[derive(Clone, Copy, PartialEq, Debug)]
-// pub struct GridSlot {
-//     pub position: Vec2, // position range is 0 to 1. --- 0 is top left of a grid slot
-//     pub velocity: Vec2, // velocity range is -MAX_VEL to MAX_VEL
-//     pub mass: f32,
-//     pub kind: u32,
-//     pub id: u32,
-//     pub dummy: u32,
-
-//     pub position2: Vec2, // position range is 0 to 1. --- 0 is top left of a grid slot
-//     pub velocity2: Vec2, // velocity range is -MAX_VEL to MAX_VEL
-//     pub mass2: f32,
-//     pub kind2: u32,
-//     pub id2: u32,
-//     pub dummy2: u32,
-//     // still space for two other u8s
-// }
-
-// // encoded version of ParticleSlot, such that it can be transferred to the GPU
-// #[derive(Clone, Copy, AsStd140)]
-// pub struct GridSlotEncoded {
-//     pub position: crevice::std140::Vec2, // position range is 0 to 1. --- 0 is top left of a grid slot
-//     pub velocity: crevice::std140::Vec2, // velocity range is -MAX_VEL to MAX_VEL
-//     pub mass: f32,
-//     pub kind: u32,
-//     pub id: u32,
-//     pub dummy: u32,
-
-//     pub position2: crevice::std140::Vec2, // position range is 0 to 1. --- 0 is top left of a grid slot
-//     pub velocity2: crevice::std140::Vec2, // velocity range is -MAX_VEL to MAX_VEL
-//     pub mass2: f32,
-//     pub kind2: u32,
-//     pub id2: u32,
-//     pub dummy2: u32,
-// }
-
-// impl Into<GridSlot> for GridSlotEncoded {
-//     // decode
-//     fn into(self) -> GridSlot {
-//         GridSlot {
-//             position: Vec2::new(self.position.x, self.position.y),
-//             velocity: Vec2::new(self.velocity.x, self.velocity.y),
-//             mass: self.mass,
-//             kind: self.kind,
-//             id: self.id,
-//             dummy: self.dummy,
-
-//             position2: Vec2::new(self.position2.x, self.position2.y),
-//             velocity2: Vec2::new(self.velocity2.x, self.velocity2.y),
-//             mass2: self.mass2,
-//             kind2: self.kind2,
-//             id2: self.id2,
-//             dummy2: self.dummy2,
-//         }
-//     }
-// }
-
-// // encode
-// impl Into<GridSlotEncoded> for GridSlot {
-//     fn into(self) -> GridSlotEncoded {
-//         GridSlotEncoded {
-//             position: crevice::std140::Vec2 {
-//                 x: self.position.x,
-//                 y: self.position.y,
-//             },
-//             velocity: crevice::std140::Vec2 {
-//                 x: self.velocity.x,
-//                 y: self.velocity.y,
-//             },
-//             mass: self.mass,
-//             kind: self.kind,
-//             id: self.id,
-//             dummy: self.dummy,
-
-//             position2: crevice::std140::Vec2 {
-//                 x: self.position2.x,
-//                 y: self.position2.y,
-//             },
-//             velocity2: crevice::std140::Vec2 {
-//                 x: self.velocity2.x,
-//                 y: self.velocity2.y,
-//             },
-//             mass2: self.mass2,
-//             kind2: self.kind2,
-//             id2: self.id2,
-//             dummy2: self.dummy2,
-//         }
-//     }
-// }
-
-// impl Default for GridSlotEncoded {
-//     fn default() -> Self {
-//         GridSlotEncoded {
-//             position: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
-//             velocity: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
-
-//             position2: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
-//             velocity2: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
-//             mass: 0.,
-//             kind: 0,
-//             id: 0,
-//             dummy: 0,
-//             mass2: 0.,
-//             kind2: 0,
-//             id2: 0,
-//             dummy2: 0,
-//         }
-//     }
-// }
-
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub struct Particle {
-    pub x: Vec2,
-    pub nx: Vec2,
-    pub r: f32,
-    pub m: f32,
-    pub dummy: Vec2,
+pub struct GridSlot {
+    pub position: Vec2, // position range is 0 to 1. --- 0 is top left of a grid slot
+    pub velocity: Vec2, // velocity range is -MAX_VEL to MAX_VEL
+    pub id: u32,
+    pub mass: u8,
+    pub kind: u8,
+    // still space for two other u8s
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, AsStd140)]
-pub struct ParticleStd140 {
-    pub x: crevice::std140::Vec2,
-    pub nx: crevice::std140::Vec2,
-    pub r: f32,
-    pub m: f32,
-    pub dummy: crevice::std140::Vec2,
+// encoded version of ParticleSlot, such that it can be transferred to the GPU
+#[derive(Clone, Copy, AsStd140)]
+pub struct GridSlotEncoded {
+    // pub pos: crevice::std140::Vec2,
+    pub id: u32,
+    pub mass_kind_encoded: u32,
+    pub velocity_encoded: u32,
 }
 
-impl Default for ParticleStd140 {
-    fn default() -> Self {
-        ParticleStd140 {
-            x: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
-            nx: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
-            r: 0.,
-            m: 0.,
-            dummy: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
+impl Into<GridSlot> for GridSlotEncoded {
+    // decode
+    fn into(self) -> GridSlot {
+        //
+        //
+        // a mass of 0 means that the grid slot is empty
+        let mass = ((self.mass_kind_encoded >> 0) & 0xFF) as u8;
+        let kind = ((self.mass_kind_encoded >> 8) & 0xFF) as u8;
+
+        let posx = ((self.mass_kind_encoded >> 16) & 0xFF) as u8;
+        let posy = ((self.mass_kind_encoded >> 24) & 0xFF) as u8;
+
+        let velx = ((self.velocity_encoded >> 0) & 0xFFFF) as u16;
+        let vely = ((self.velocity_encoded >> 16) & 0xFFFF) as u16;
+
+        // convert posx and posy to a vec2
+        let pos = Vec2::new(posx as f32 / u8::MAX as f32, posy as f32 / u8::MAX as f32);
+
+        let vel = Vec2::new(
+            (velx as f32 / u16::MAX as f32 - 0.5) * 2.0,
+            (vely as f32 / u16::MAX as f32 - 0.5) * 2.0,
+        ) * MAX_VEL;
+
+        GridSlot {
+            position: pos,
+            velocity: vel,
+            id: self.id,
+            mass,
+            kind,
         }
     }
 }
 
 // encode
-impl Into<ParticleStd140> for Particle {
-    fn into(self) -> ParticleStd140 {
-        ParticleStd140 {
-            x: crevice::std140::Vec2 {
-                x: self.x.x,
-                y: self.x.y,
-            },
-            nx: crevice::std140::Vec2 {
-                x: self.nx.x,
-                y: self.nx.y,
-            },
-            r: self.r,
-            m: self.m,
-            dummy: crevice::std140::Vec2 {
-                x: self.dummy.x,
-                y: self.dummy.y,
-            },
-        }
-    }
-}
-
-impl Into<Particle> for ParticleStd140 {
-    fn into(self) -> Particle {
-        Particle {
-            x: Vec2::new(self.x.x, self.x.y),
-            nx: Vec2::new(self.nx.x, self.nx.y),
-            r: self.r,
-            m: self.m,
-            dummy: Vec2::new(self.dummy.x, self.dummy.y),
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub struct GridSlot {
-    pub particle1: Particle,
-    pub particle2: Particle,
-}
-
-#[derive(Clone, Copy, AsStd140)]
-pub struct GridSlotEncoded {
-    pub particle1: ParticleStd140,
-    pub particle2: ParticleStd140,
-}
-
 impl Into<GridSlotEncoded> for GridSlot {
     fn into(self) -> GridSlotEncoded {
-        GridSlotEncoded {
-            particle1: self.particle1.into(),
-            particle2: self.particle2.into(),
-        }
-    }
-}
+        let mut encoded = (self.kind as u32) << 8 | (self.mass as u32) << 0;
 
-impl Into<GridSlot> for GridSlotEncoded {
-    fn into(self) -> GridSlot {
-        GridSlot {
-            particle1: self.particle1.into(),
-            particle2: self.particle2.into(),
+        // encode the position as two u8s
+        let x = (self.position.x * u8::MAX as f32) as u8;
+        let y = (self.position.y * u8::MAX as f32) as u8;
+
+        encoded |= (x as u32) << 16 | (y as u32) << 24;
+
+        let normalized_vel = (self.velocity / MAX_VEL + 1.0) / 2.0;
+
+        let mut velocity_encoded: u32 = (normalized_vel.x * u16::MAX as f32) as u32;
+        velocity_encoded |= ((normalized_vel.y * u16::MAX as f32) as u32) << 16;
+
+        GridSlotEncoded {
+            id: self.id,
+            mass_kind_encoded: encoded,
+            velocity_encoded,
         }
     }
 }
 
 impl Default for GridSlotEncoded {
     fn default() -> Self {
-        GridSlotEncoded {
-            particle1: ParticleStd140::default(),
-            particle2: ParticleStd140::default(),
+        Self {
+            mass_kind_encoded: 0,
+            id: 0,
+            velocity_encoded: 0,
+            // pos: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
         }
     }
 }
@@ -517,27 +391,27 @@ impl GridSlotEncoded {
     }
 }
 
-// #[test]
-// fn test_particle_slot_encoding() {
-//     let slot = GridSlot {
-//         // occupied: false,
-//         position: Vec2::new(0.3, 0.22),
-//         velocity: Vec2::new(11.0, 56.0),
-//         id: 1654987,
-//         mass: 15,
-//         kind: 69,
-//     };
+#[test]
+fn test_particle_slot_encoding() {
+    let slot = GridSlot {
+        // occupied: false,
+        position: Vec2::new(0.3, 0.22),
+        velocity: Vec2::new(11.0, 56.0),
+        id: 1654987,
+        mass: 15,
+        kind: 69,
+    };
 
-//     let slot_meta: GridSlotEncoded = slot.into();
-//     let slot_decoded: GridSlot = slot_meta.into();
+    let slot_meta: GridSlotEncoded = slot.into();
+    let slot_decoded: GridSlot = slot_meta.into();
 
-//     assert_eq!(slot.mass, slot_decoded.mass);
-//     assert_eq!(slot.kind, slot_decoded.kind);
-//     assert_eq!(slot.id, slot_decoded.id);
-//     assert!((slot.position - slot_decoded.position).length() < 0.01);
-//     assert!((slot.velocity - slot_decoded.velocity).length() < 0.01);
-//     // assert_eq!(slot.velocity, slot_decoded.velocity);
-// }
+    assert_eq!(slot.mass, slot_decoded.mass);
+    assert_eq!(slot.kind, slot_decoded.kind);
+    assert_eq!(slot.id, slot_decoded.id);
+    assert!((slot.position - slot_decoded.position).length() < 0.01);
+    assert!((slot.velocity - slot_decoded.velocity).length() < 0.01);
+    // assert_eq!(slot.velocity, slot_decoded.velocity);
+}
 
 pub struct Buffers {
     // buffer_a: BufferVec<BufferA>,

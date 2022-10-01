@@ -25,3 +25,7 @@ crevice = "0.11"
 name = "life"
 path = "examples/life/life.rs"
 
+[[example]]
+name = "toy"
+path = "examples/toy/toy.rs"
+

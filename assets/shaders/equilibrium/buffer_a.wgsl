@@ -490,13 +490,13 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         // }
         ///////////////////////////////////////////////
 
-        if (grid_location.x == 100 && grid_location.y % 4 == 0) {
+         if (grid_location.x == 100 && grid_location.y % 4 == 0) {
             let vel = vec2<f32>(0.1, 0.0);
             let pos = vec2<f32>(f32(grid_location.y) / 20.0 );
             let id = (u32(grid_location.x) & 0xFFFFu) << 16u | (u32(grid_location.y) & 0xFFFFu); 
             *quoi = encode(GridSlot(pos,  vel, id,  1u, 2u));
             return;
-        }
+         }
 
         if (grid_location.x == 105 && grid_location.y % 4 == 0) {
             let vel = vec2<f32>(0.0, 0.0);
@@ -504,7 +504,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
             let id = (u32(grid_location.x) & 0xFFFFu) << 16u | (u32(grid_location.y) & 0xFFFFu); 
             *quoi = encode(GridSlot(pos,  vel, id,  1u, 1u));
             return;
-        }
+         }
 
 
         ////////////////////////////////////////////////

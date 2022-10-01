@@ -73,7 +73,7 @@ let u8max = 255.0;
 let u16max = 65535.0;
 let u32max = 4294967295.0;
 
-let max_vel = 0.1;
+let max_vel = 0.2;
 
 
 fn decode(grid_slot_encoded: GridSlotEncoded) -> GridSlot {
@@ -149,16 +149,47 @@ fn encode(slot: GridSlot) -> GridSlotEncoded {
 //
 //
 //
-let vel_damping = 0.999;
+let vel_damping = 1.0;
 // let gravity = 0.02;
 let gravity = 0.0;
 let max_trail_intensity = 2.0;
 let trail_decay = 0.95;
-let ball_radius = 0.5;
+let ball_radius = 0.51;
 
+
+fn update_pos( slot_in: ptr<function, GridSlot>, grid_loc: vec2<i32> ) {
+
+    var slot = *slot_in;
+
+    var mouse_force = vec2<f32>(0., 0.);
+
+    let particle_pos = slot.pos + vec2<f32>(grid_loc);
+
+    
+
+    if (uni.iMouse.z > 0.0 ) {
+        let eco = uni.iResolution.x / f32(uni.grid_size.x);
+        let mouse_pos = vec2<f32>(uni.iMouse.x, uni.iResolution.y-uni.iMouse.y) / eco ;
+        let mouse_force_dir = normalize(mouse_pos - particle_pos);
+        mouse_force = mouse_force_dir * 0.7;
+    }
+
+    let total_force = vec2<f32>(0., gravity) + mouse_force;
+
+    slot.vel  = slot.vel * vel_damping + total_force * uni.iTimeDelta;
+
+    //
+    //
+    //
+    // clamping velocity is important to avoid encoding/decoding errors
+    slot.vel = clamp(slot.vel, vec2<f32>(-max_vel), vec2<f32>(max_vel));
+    slot.pos = slot.pos + slot.vel ;
+
+    *slot_in = slot;
+}
 
 // checks whether a point has moved out of a grid cell or has hit a wall
-fn update_pos(
+fn correct_grid_slot(
     slot_in: ptr<function, GridSlot>, 
     grid_location: vec2<i32>
 ) -> vec2<i32> {
@@ -322,14 +353,14 @@ fn collide(
         // a.vel = clamp(a.vel, -vec2<f32>(max_vel), vec2<f32>(max_vel));
         // b.vel = clamp(b.vel, -vec2<f32>(max_vel), vec2<f32>(max_vel));
 
-        let va = a.vel - dot(delta, a.vel - b.vel) * delta / dot(delta, delta);
-        a_pos = a_pos + normalize(delta) * overlap * 0.5;
+        a.vel = a.vel - dot(delta, a.vel - b.vel) * delta / dot(delta, delta);
+        a_pos = a_pos + normalize(delta) * overlap * 0.99;
 
 
 
 
         a.pos = a_pos - vec2<f32>(a_loc);
-        a.vel = va;
+         
         // b.pos = b_pos - vec2<f32>(b_loc);
 
         *slot_a = a;

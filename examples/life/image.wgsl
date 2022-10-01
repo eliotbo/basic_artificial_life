@@ -148,7 +148,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
                     case 0u { ball_color = pink * ball_brightness; }
                     case 1u { ball_color = salmon * ball_brightness; }
                     case 2u { ball_color = aqua * ball_brightness; }
-                    // case 3u { ball_color = yellow; }
+                    case 3u { ball_color =  vec4<f32>(0.082, 0.3, 0.933, 1.0); }
                     default { ball_color = dark_green * ball_brightness; }
 
                 }
