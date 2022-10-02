@@ -49,6 +49,7 @@ use bevy::{
 
 use crevice::std140::AsStd140;
 // use crevice::std430::AsStd430;
+
 use std::{borrow::Cow, num::NonZeroU64};
 
 use bevy::{app::ScheduleRunnerSettings, utils::Duration};
@@ -71,8 +72,8 @@ pub const WORKGROUP_SIZE: u32 = 8;
 pub const WORKGROUP_SIZE_BUF: u32 = 8;
 // pub const NUM_PARTICLES_X: u32 = 240;
 // pub const NUM_PARTICLES_Y: u32 = 150;
-pub const NUM_PARTICLES_X: u32 = 200;
-pub const NUM_PARTICLES_Y: u32 = 100;
+pub const NUM_PARTICLES_X: u32 = 100;
+pub const NUM_PARTICLES_Y: u32 = 50;
 pub const NUM_PARTICLES: usize = (NUM_PARTICLES_X * NUM_PARTICLES_Y) as usize;
 
 pub const WINDOW_WIDTH: f32 = 800.;
@@ -408,7 +409,8 @@ pub struct Particle {
     pub nx: Vec2,
     pub r: f32,
     pub m: f32,
-    pub dummy: Vec2,
+    pub k: u32,
+    pub dummy: f32,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug, AsStd140)]
@@ -417,7 +419,8 @@ pub struct ParticleStd140 {
     pub nx: crevice::std140::Vec2,
     pub r: f32,
     pub m: f32,
-    pub dummy: crevice::std140::Vec2,
+    pub k: u32,
+    pub dummy: f32,
 }
 
 impl Default for ParticleStd140 {
@@ -427,7 +430,8 @@ impl Default for ParticleStd140 {
             nx: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
             r: 0.,
             m: 0.,
-            dummy: crevice::std140::Vec2 { x: 0.0, y: 0.0 },
+            k: 0,
+            dummy: 0.0,
         }
     }
 }
@@ -446,10 +450,8 @@ impl Into<ParticleStd140> for Particle {
             },
             r: self.r,
             m: self.m,
-            dummy: crevice::std140::Vec2 {
-                x: self.dummy.x,
-                y: self.dummy.y,
-            },
+            k: self.k,
+            dummy: self.dummy,
         }
     }
 }
@@ -461,7 +463,8 @@ impl Into<Particle> for ParticleStd140 {
             nx: Vec2::new(self.nx.x, self.nx.y),
             r: self.r,
             m: self.m,
-            dummy: Vec2::new(self.dummy.x, self.dummy.y),
+            k: self.k,
+            dummy: self.dummy,
         }
     }
 }

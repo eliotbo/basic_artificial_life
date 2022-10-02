@@ -190,7 +190,8 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let ball_radius_co = eco * particle_size;
 
     // var color = vec4<f32>(0.25, 0.8, 0.8, 1.0);
-    let background_color = vec4<f32>(0.1, 0.1, 0.1, 1.0) / 3.;
+    let gray = 0.1;
+    let background_color = vec4<f32>(gray, gray, gray, 1.0) ;
     // let background_color = soft_gray;
     // var color = dark_purple / 4.0;
     var color = background_color;
@@ -199,14 +200,16 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let co = eco;
     let co2 = co / 1.;
 
-    var grid_color = background_color * 1.3;
+    // var grid_color = background_color * 1.3;
+    var grid_color =  vec4<f32>(0.2, 0.2, 0.2, 1.0) * 1.0;
     grid_color.a = 1.0;
+
     let sx = sdXSegment(float_loc.x % co, co2);
     let sy = sdXSegment(float_loc.y % co, co2);
 
     let sxy = smoothstep(0.0, 3.0, sx) + smoothstep(0.0, 3.0, sy);
 
-    // color = mix(color, grid_color, 1.0 - smoothstep(0.0, 3.0, sx));
+    color = mix(color,  grid_color,   sxy);
 
     
 
@@ -226,21 +229,25 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 	R = uni.iResolution.xy;
 
 	time = uni.iTime;
-	var colxyz = col.xyz;
-	colxyz = vec3<f32>(1.);
-	col.x = colxyz.x;
-	col.y = colxyz.y;
-	col.z = colxyz.z;
+
+	// var colxyz = col.xyz;
+	// colxyz = vec3<f32>(1.);
+	// col.x = colxyz.x;
+	// col.y = colxyz.y;
+	// col.z = colxyz.z;
 
 	var d: f32 = 100.;
 	var c: vec3<f32> = vec3<f32>(1.);
 	var m: f32 = 1.;
-	var I: i32 = i32(ceil(particle_size * 0.5)) + 2;
+	var I: i32 = i32(ceil(particle_size)) + 1;
 
-    
+    var ball_color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    var ball_brightness = 1.0;
 	let cc = 4.0;
 
+    var do_break = false;
 	for (var i: i32 = -I; i <= I; i = i + 1) {
+        
 	for (var j: i32 = -I; j <= I; j = j + 1) {
 
 		var tpos: vec2<i32> = vec2<i32>(pos_grid) + vec2<i32>(i, j);
@@ -254,25 +261,51 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
         // var nd: f32 = distance(pos, P0.NX )  - P0.R ;
 		// var nd: f32 = distance(pos, P0.NX * cc)  - P0.R * cc;
-        var nd: f32 = distance(pos, P0.NX * R2G)  - P0.R * R2G.x;
+        var nd: f32 = distance(pos, P0.NX * R2G)  - P0.R * R2G.x / 1.25;
         // var nd: f32 = distance(pos_grid, P0.NX ) - P0.R ;
 
-		// if (nd < d) {
-		// 	let V: vec2<f32> = (P0.NX - P0.X) * 1. / 2. ;
-		// 	c = vec3<f32>(V * 0.5 + 0.5, (P0.M - 1.) / 3.);
-		// 	c = mix(vec3<f32>(1.), c, length(V));
-		// 	m = P0.M;
-		// }
+		if (nd < d) {
+			let V: vec2<f32> = (P0.NX - P0.X) * 1. / 2. ;
+			c = vec3<f32>(V * 0.5 + 0.5, (P0.M - 1.) / 3.);
+			c = mix(vec3<f32>(1.), c, length(V));
+			m = P0.M;
+
+            // switch (P0.K) {
+            //     // case 0u { ball_color = pink * ball_brightness; }
+            //     case 0u { ball_color = vec4<f32>(0., 0., 0., 0.0); }
+            //     case 1u { ball_color = vec4<f32>(0.02, 0.5, 0.2, 1.0) * ball_brightness; }
+            //     case 2u { ball_color = aqua * ball_brightness; }
+            //     case 3u { ball_color =  vec4<f32>(0.082, 0.3, 0.933, 1.0); }
+            //     default { ball_color = vec4<f32>(0., 0., 0., 0.0); }
+            // }
+
+            switch (P0.K){
+                case 0u { ball_color = pink * ball_brightness; }
+                case 1u { ball_color = salmon * ball_brightness; }
+                case 2u { ball_color = beige * ball_brightness; }
+                case 3u { ball_color =  dark_purple * ball_brightness; }
+                default { ball_color = dark_green * ball_brightness; }
+
+            }
+		}
 
 		d = min(d, nd);
 
-		if (d < 0.) {		break;  }
+		if (d < 0.) {		
+
+            do_break = true;
+            break;  
+        }
+        if (do_break) { break; }
 	}
 
 	}
+
+    if (!do_break) { ball_color = vec4<f32>(0.0, 0.0, 0.0, 0.0); }
 
 	var s: f32 = 100.;
 	let off: vec2<f32> = vec2<f32>(5., 5.);
+    
 	// if (d > 0. && i32(pos.x) % 2 == 0 && i32(pos.y) % 2 == 0) {
 
 	// 	for (var i: i32 = -I; i <= I; i = i + 1) {
@@ -299,10 +332,15 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
 	// }
 
-	// if (d < 0.) { d = sin(d); }
+	if (d < 0.) { 
+        d = sin(d);
+        col = mix(ball_color, col, d);
+     }
 
 
-	col = vec4<f32>(abs(d), abs(d), abs(d), col.a);
+	// col = vec4<f32>(abs(d), abs(d), abs(d), col.a);
+
+    
 
 
 	// if (d < 0.) {
@@ -341,7 +379,8 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 	// 	col.z = colxyz.z; 
 	// }
 
-    // col = mix(col, vec4<f32>(0.3), 1.0 - smoothstep(0.0, 3.0, sxy));
+    // col = background_color;
+    // col = mix(col, grid_color,  1.0 - smoothstep(0.0, 3.0, sxy));
 	// col = vec4<f32>(1.0, 0.0, 0.0, 1.0);
 	col.w = 1.0;
 

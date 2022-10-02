@@ -15,6 +15,8 @@ fn Integrate(
 	pos: vec2<f32>
 )  {
 	var I: i32 = i32(ceil(particle_size));
+    // var I: i32 = 3;
+    var did_find_particle: bool = false;
     
 
 	for (var i: i32 = -I; i <= I; i = i + 1) {
@@ -51,11 +53,20 @@ fn Integrate(
 			P0.NX = P0.NX + P0V * 2.;
 			(*P) = P0;
 
+            did_find_particle = true;
 			break;
 		}
 	}
 
 	}
+
+    if (!did_find_particle) {
+        (*P) = Particle(
+            vec2<f32>(0.), 
+            vec2<f32>(0.), 
+            0., 0., 0u, 0.
+        );
+    }
 
 } 
 
@@ -80,22 +91,26 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // var ddd = buffer_d;
 	Integrate(&P, pos);
 
-	// if (uni.iFrame == 0) {
+
 	#ifdef INIT
 		if (rand() > 0.902) {
 			P.X = pos;
 			P.NX = pos + (rand2() - 0.5) * 0.;
 			let r: f32 = pow(rand(), 2.);
 			P.M = mix(1., 4., r);
-			P.R = mix(1., particle_size * 0.5, r);
+			P.R = mix(1., particle_size, r);
+            P.K = u32(rand4().a * 5.0);
+            // P.K = 1u;
 		} else { 
 			P.X = pos;
 			P.NX = pos;
 			P.M = 0.;
 			P.R = particle_size * 0.5;
+            P.K = 0u;
 		}
 	// }
 	#endif
+    
 
 	let U: GridSlotEncoded = saveParticles(P, P, pos);
 

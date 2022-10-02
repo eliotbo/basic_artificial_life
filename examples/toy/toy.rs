@@ -4,6 +4,7 @@ use bevy::{
 };
 
 use basic_artificial_life::*;
+use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
 
 // TODO: start from lobster's code instead of mine
 // - use buffer instead of pixels for particles
@@ -45,6 +46,7 @@ fn main() {
             position: Vec3::new(0.0, 0.0, 0.0),
         })
         .add_plugins(DefaultPlugins)
+        .add_plugin(FramepacePlugin)
         .add_plugin(ShadertoyPlugin)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -56,6 +58,7 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut st_res: ResMut<ShadertoyResources>,
+    mut settings: ResMut<FramepaceSettings>,
 ) {
     let example = "toy";
     st_res.include_debugger = false;
@@ -65,6 +68,8 @@ fn setup(
 
     asset_server.watch_for_changes().unwrap();
     commands.insert_resource(all_shader_handles);
+
+    settings.limiter = Limiter::from_framerate(30.0);
 }
 
 // system that updates the uniform

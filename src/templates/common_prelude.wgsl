@@ -15,7 +15,8 @@ struct Particle {
 	NX: vec2<f32>,
 	R: f32,
 	M: f32,
-    dummy: vec2<f32>,
+    K: u32, // Kind
+    dummy: f32,
 };
 
 struct GridSlot {

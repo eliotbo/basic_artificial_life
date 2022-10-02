@@ -15,7 +15,8 @@ struct Particle {
 	NX: vec2<f32>,
 	R: f32,
 	M: f32,
-    dummy: vec2<f32>,
+    K: u32, // Kind
+    dummy: f32,
 };
 
 struct GridSlot {
@@ -93,8 +94,62 @@ var<private> Mouse: vec4<f32>;
 var<private> time: f32;
 var<private> s0: vec4<u32>;
 // let particle_size: f32 = 10.5;
-let particle_size: f32 = 4.5;
+let particle_size: f32 = 2.2;
 let relax_value: f32 = 0.3;
+
+// struct Particle {
+// 	X: vec2<f32>,
+// 	NX: vec2<f32>,
+// 	R: f32,
+// 	M: f32,
+//     K: u32, // Kind
+//     dummy: f32,
+// };
+// let empty_particle: Particle = Particle(
+//     vec2<f32>(0.), 
+//     vec2<f32>(0.), 
+//     0., 0., 0, 0.);
+
+//////////////////////////// colors ////////////////////////////
+//////////////////////////// colors ////////////////////////////
+//////////////////////////// colors ////////////////////////////
+// let purple = vec4<f32>(130.0 / 255.0, 106.0 / 255.0, 237.0 / 255.0, 1.0);
+let purple = vec4<f32>(0.510, 0.416, 0.929, 1.0);
+
+
+// let pink = vec4<f32>(200.0 / 255.0, 121.0 / 255.0, 255.0 / 255.0, 1.0);
+let pink = vec4<f32>(0.784, 0.475, 1.0, 1.0);
+
+
+// let c3 = vec4<f32>(255.0 / 255.0, 183.0 / 255.0, 255.0 / 255.0, 1.0);
+let salmon = vec4<f32>(1.0, 0.718, 1.0, 1.0);
+
+// let c4 = vec4<f32>(59.0 / 255.0, 244.0 / 255.0, 251.0 / 255.0, 1.0);
+let aqua = vec4<f32>(0.231, 0.957, 0.984, 1.0);
+
+// let c5 = vec4<f32>(202.0 / 255.0, 255.0 / 255.0, 138.0 / 255.0, 1.0);
+let yellow = vec4<f32>(0.792, 1.0, 0.541, 1.0);
+let brown = vec4<f32>(0.498, 0.41, 0.356, 1.0);
+let beige = vec4<f32>(0.839, 0.792, 0.596, 1.0);
+let dark_purple = vec4<f32>(0.447, 0.098, 0.353, 1.0);
+
+// 12, 202, 74
+// let dark_green = vec4<f32>(12.0 / 255.0, 202.0 / 255.0, 74.0 / 255.0, 1.0);
+let dark_green = vec4<f32>(0.047, 0.792, 0.290, 1.0);
+
+
+// let soft_gray =  vec4<f32>(68.0 / 255.0, 64.0 / 255.0, 84.0 / 255.0, 1.0);
+let soft_gray =  vec4<f32>(0.267, 0.251, 0.329, 1.0);
+
+let black = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+let gray = vec4<f32>(0.051, 0.051, 0.051, 1.0);
+
+// let blue = vec4<f32>(21, 244, 238);
+let blue = vec4<f32>(0.082, 0.957, 0.933, 1.0);
+//////////////////////////// colors ////////////////////////////
+//////////////////////////// colors ////////////////////////////
+//////////////////////////// colors ////////////////////////////
+
 
 fn Rot(ang: f32) -> mat2x2<f32> {
 	return mat2x2<f32>(cos(ang), -sin(ang), sin(ang), cos(ang));
@@ -110,8 +165,8 @@ fn sdBox(p: vec2<f32>, b: vec2<f32>) -> f32 {
 } 
 
 fn border(p: vec2<f32>) -> f32 {
-    let edge = 0.01;
-	let bound: f32 = -sdBox(p - R * (0.5 - 0.0), R * vec2<f32>(0.5 - edge, 0.45 ));
+    let edge = 10.0 * R2G;
+	let bound: f32 = -sdBox(p - R * (0.5 - 0.0), R / 2.0 - edge );
     // let bound: f32 = -sdBox(p, R * vec2<f32>(1.0, 1.0));
 
 	// let box: f32 = sdBox(Rot(0. * time - 0.) * (p - R * vec2<f32>(0.5, 0.6)), R * vec2<f32>(0.05, 0.01));
@@ -249,6 +304,8 @@ fn Integrate(
 	pos: vec2<f32>
 )  {
 	var I: i32 = i32(ceil(particle_size));
+    // var I: i32 = 3;
+    var did_find_particle: bool = false;
     
 
 	for (var i: i32 = -I; i <= I; i = i + 1) {
@@ -285,11 +342,20 @@ fn Integrate(
 			P0.NX = P0.NX + P0V * 2.;
 			(*P) = P0;
 
+            did_find_particle = true;
 			break;
 		}
 	}
 
 	}
+
+    if (!did_find_particle) {
+        (*P) = Particle(
+            vec2<f32>(0.), 
+            vec2<f32>(0.), 
+            0., 0., 0u, 0.
+        );
+    }
 
 } 
 
@@ -314,22 +380,26 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // var ddd = buffer_d;
 	Integrate(&P, pos);
 
-	// if (uni.iFrame == 0) {
+
 	#ifdef INIT
 		if (rand() > 0.902) {
 			P.X = pos;
 			P.NX = pos + (rand2() - 0.5) * 0.;
 			let r: f32 = pow(rand(), 2.);
 			P.M = mix(1., 4., r);
-			P.R = mix(1., particle_size * 0.5, r);
+			P.R = mix(1., particle_size, r);
+            P.K = u32(rand4().a * 5.0);
+            // P.K = 1u;
 		} else { 
 			P.X = pos;
 			P.NX = pos;
 			P.M = 0.;
 			P.R = particle_size * 0.5;
+            P.K = 0u;
 		}
 	// }
 	#endif
+    
 
 	let U: GridSlotEncoded = saveParticles(P, P, pos);
 

@@ -40,7 +40,7 @@ fn Simulation(
 	}
 	}
 
-	let dp: vec2<f32> = (*P).NX;
+	let dp: vec2<f32> = (*P).NX * R2G;
 	var d: f32 = border(dp);
 	if (d < 0.) { F = F - (bN(dp).xy * d); }
 	(*P).NX = (*P).NX + (F * 0.9 / 3.);
