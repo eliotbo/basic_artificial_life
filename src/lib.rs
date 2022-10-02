@@ -70,10 +70,10 @@ use texture_d::*;
 
 pub const WORKGROUP_SIZE: u32 = 8;
 pub const WORKGROUP_SIZE_BUF: u32 = 8;
-// pub const NUM_PARTICLES_X: u32 = 240;
-// pub const NUM_PARTICLES_Y: u32 = 150;
-pub const NUM_PARTICLES_X: u32 = 100;
-pub const NUM_PARTICLES_Y: u32 = 50;
+pub const NUM_PARTICLES_X: u32 = 400;
+pub const NUM_PARTICLES_Y: u32 = 200;
+// pub const NUM_PARTICLES_X: u32 = 100;
+// pub const NUM_PARTICLES_Y: u32 = 50;
 pub const NUM_PARTICLES: usize = (NUM_PARTICLES_X * NUM_PARTICLES_Y) as usize;
 
 pub const WINDOW_WIDTH: f32 = 800.;

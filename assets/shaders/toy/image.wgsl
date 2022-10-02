@@ -485,6 +485,15 @@ fn sdXSegment(p: f32, x: f32) -> f32 {
 //     textureStore(texture, y_inverted_location, col);
 // }
 
+fn opSmoothUnion(d1: f32, d2: f32, k: f32 ) -> f32 {
+    let h: f32 = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
+    return mix( d2, d1, h ) - k*h*(1.0-h);
+}
+
+fn opSmoothIntersection( d1: f32, d2: f32, k: f32 ) -> f32 {
+    let h: f32 = clamp( 0.5 - 0.5*(d2-d1)/k, 0.0, 1.0 );
+    return mix( d2, d1, h ) + k*h*(1.0-h); }
+
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     R = uni.iResolution.xy;
@@ -504,7 +513,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let ball_radius_co = eco * particle_size;
 
     // var color = vec4<f32>(0.25, 0.8, 0.8, 1.0);
-    let gray = 0.1;
+    let gray = 0.00241;
     let background_color = vec4<f32>(gray, gray, gray, 1.0) ;
     // let background_color = soft_gray;
     // var color = dark_purple / 4.0;
@@ -515,13 +524,13 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let co2 = co / 1.;
 
     // var grid_color = background_color * 1.3;
-    var grid_color =  vec4<f32>(0.2, 0.2, 0.2, 1.0) * 1.0;
+    var grid_color =  vec4<f32>(0.2, 0.2, 0.2, 1.0) * 0.5;
     grid_color.a = 1.0;
 
     let sx = sdXSegment(float_loc.x % co, co2);
     let sy = sdXSegment(float_loc.y % co, co2);
 
-    let sxy = smoothstep(0.0, 3.0, sx) + smoothstep(0.0, 3.0, sy);
+    let sxy = 1. - smoothstep(0.0, 3.0, sx) + 1. - smoothstep(0.0, 3.0, sy);
 
     color = mix(color,  grid_color,   sxy);
 
@@ -551,12 +560,14 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 	// col.z = colxyz.z;
 
 	var d: f32 = 100.;
+    var d2: f32 = 100.;
+    var mind: f32 = 100.;
 	var c: vec3<f32> = vec3<f32>(1.);
 	var m: f32 = 1.;
-	var I: i32 = i32(ceil(particle_size)) + 1;
+	var I: i32 = i32(ceil(particle_size)) + 2;
 
     var ball_color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    var ball_brightness = 1.0;
+    var ball_brightness = 0.4;
 	let cc = 4.0;
 
     var do_break = false;
@@ -575,24 +586,23 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
         // var nd: f32 = distance(pos, P0.NX )  - P0.R ;
 		// var nd: f32 = distance(pos, P0.NX * cc)  - P0.R * cc;
-        var nd: f32 = distance(pos, P0.NX * R2G)  - P0.R * R2G.x / 1.25;
+        var nd: f32 = distance(pos, P0.NX * R2G)  - P0.R * R2G.x / 1.05;
         // var nd: f32 = distance(pos_grid, P0.NX ) - P0.R ;
 
-		if (nd < d) {
+        
+        d = opSmoothUnion(d, nd, 5.95);
+        // d = opSmoothIntersection(d, nd, 0.25);
+        
+        // choose the closest particle as the one to draw 
+		if (nd < mind) {
 			let V: vec2<f32> = (P0.NX - P0.X) * 1. / 2. ;
 			c = vec3<f32>(V * 0.5 + 0.5, (P0.M - 1.) / 3.);
 			c = mix(vec3<f32>(1.), c, length(V));
 			m = P0.M;
+            mind = nd;
 
-            // switch (P0.K) {
-            //     // case 0u { ball_color = pink * ball_brightness; }
-            //     case 0u { ball_color = vec4<f32>(0., 0., 0., 0.0); }
-            //     case 1u { ball_color = vec4<f32>(0.02, 0.5, 0.2, 1.0) * ball_brightness; }
-            //     case 2u { ball_color = aqua * ball_brightness; }
-            //     case 3u { ball_color =  vec4<f32>(0.082, 0.3, 0.933, 1.0); }
-            //     default { ball_color = vec4<f32>(0., 0., 0., 0.0); }
-            // }
-
+            // ball_brightness = c.z;
+            
             switch (P0.K){
                 case 0u { ball_color = pink * ball_brightness; }
                 case 1u { ball_color = salmon * ball_brightness; }
@@ -603,52 +613,30 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
             }
 		}
 
-		d = min(d, nd);
+		// d = min(d, nd);
+        
 
-		if (d < 0.) {		
-
-            do_break = true;
-            break;  
-        }
-        if (do_break) { break; }
+		// if (d < 0.) {
+        //     do_break = true;
+        //     break;
+        // }
+        
 	}
 
+    // if (do_break) { break; }
+
 	}
 
-    if (!do_break) { ball_color = vec4<f32>(0.0, 0.0, 0.0, 0.0); }
+    // if (!do_break) { ball_color = vec4<f32>(0.0, 0.0, 0.0, 0.0); }
 
 	var s: f32 = 100.;
 	let off: vec2<f32> = vec2<f32>(5., 5.);
     
-	// if (d > 0. && i32(pos.x) % 2 == 0 && i32(pos.y) % 2 == 0) {
 
-	// 	for (var i: i32 = -I; i <= I; i = i + 1) {
-	// 	for (var j: i32 = -I; j <= I; j = j + 1) {
-
-	// 		let tpos: vec2<f32> = pos - off + vec2<f32>(f32(i), f32(j));
-
-    //         var data: GridSlotEncoded = buffer_d.pixels[get_index(vec2<i32>(tpos))];
-	// 		// let data: vec4<f32> = textureLoad(buffer_d, vec2<i32>(tpos));
-
-	// 		let P0: Particle = getParticle(data, tpos);
-	// 		if (tpos.x < 0. || tpos.x > R.x || tpos.y < 0. || tpos.y > R.x) {
-	// 			s = 0.;
-	// 			break;
-	// 		}
-	// 		if (P0.M == 0.) {
-	// 			continue;
-	// 		}
-	// 		let nd: f32 = distance(pos - off, P0.NX) - P0.R;
-	// 		s = min(s, nd);
-	// 	}
-
-	// 	}
-
-	// }
 
 	if (d < 0.) { 
-        d = sin(d);
-        col = mix(ball_color, col, d);
+        // d = sin(d * 2.0);
+        col = mix(ball_color, col, d + 0.);
      }
 
 

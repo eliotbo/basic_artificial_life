@@ -6,11 +6,9 @@ use bevy::{
 use basic_artificial_life::*;
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
 
-// TODO: start from lobster's code instead of mine
-// - use buffer instead of pixels for particles
-// -    add possibility for a second particle per cell
-// - change the decode and encode functions
-// - add way to adjust grid size
+// TODO:
+// - add sdfs for linking up the particles visually
+// - the box seems to not take the radius into account
 
 // Ideas:
 // 1) make mass go up and two particles share the same cell. Then, it becomes a
@@ -35,7 +33,7 @@ fn main() {
             height: WINDOW_HEIGHT,
             cursor_visible: true,
             // position: WindowPosition::At(Vec2::new(500.0, 400.0)),
-            position: WindowPosition::At(Vec2::new(50.0, 40.0)),
+            position: WindowPosition::At(Vec2::new(1000.0, 400.0)),
             present_mode: bevy::window::PresentMode::Immediate, // uncomment for unthrottled FPS
             ..default()
         })
@@ -69,7 +67,7 @@ fn setup(
     asset_server.watch_for_changes().unwrap();
     commands.insert_resource(all_shader_handles);
 
-    settings.limiter = Limiter::from_framerate(30.0);
+    settings.limiter = Limiter::from_framerate(120.0);
 }
 
 // system that updates the uniform
