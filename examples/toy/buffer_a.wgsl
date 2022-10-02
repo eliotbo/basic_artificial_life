@@ -14,7 +14,8 @@ fn Integrate(
 	P: ptr<function, Particle>, 
 	pos: vec2<f32>
 )  {
-	var I: i32 = 3;
+	var I: i32 = i32(ceil(particle_size));
+    
 
 	for (var i: i32 = -I; i <= I; i = i + 1) {
 	for (var j: i32 = -I; j <= I; j = j + 1) {
@@ -36,8 +37,8 @@ fn Integrate(
 			var P0V: vec2<f32> = (P0.NX - P0.X) / 2.;
 
 			if (uni.iMouse.z > 0.) {
-				let dm: vec2<f32> = P0.NX - uni.iMouse.xy;
-				let d: f32 = length(dm / 50.);
+				let dm: vec2<f32> = P0.NX - uni.iMouse.xy / R2G;
+				let d: f32 = length(dm / 50.) * R2G.x;
 				P0V = P0V + (normalize(dm) * exp(-d * d) * 0.3);
 			}
 
@@ -70,15 +71,18 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 	var pos = vec2<f32>(f32(location.x), f32(location.y) );
 
 	R = uni.iResolution.xy;
+    R2G = R / vec2<f32>(uni.grid_size.xy);
 	rng_initialize(pos, i32(uni.iFrame));
 	var P: Particle;
+
+    
 
     // var ddd = buffer_d;
 	Integrate(&P, pos);
 
 	// if (uni.iFrame == 0) {
 	#ifdef INIT
-		if (rand() > 0.992) {
+		if (rand() > 0.902) {
 			P.X = pos;
 			P.NX = pos + (rand2() - 0.5) * 0.;
 			let r: f32 = pow(rand(), 2.);

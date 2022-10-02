@@ -40,8 +40,9 @@ fn Simulation(
 	}
 	}
 
-	let dp: vec2<f32> = (*P).NX;
-	var d: f32 = border(dp);
+    // R2G = uni.iResolution / f32(uni.grid_size);
+	let dp: vec2<f32> = (*P).NX * R2G;
+	var d: f32 = border(dp );
 	if (d < 0.) { F = F - (bN(dp).xy * d); }
 	(*P).NX = (*P).NX + (F * 0.9 / 3.);
 }
@@ -49,7 +50,7 @@ fn Simulation(
 
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
-    // let R: vec2<f32> = uni.iResolution.xy;
+
     let y_inverted_location = vec2<i32>(i32(invocation_id.x), i32(R.y) - i32(invocation_id.y));
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
     
@@ -57,6 +58,11 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 	var pos = vec2<f32>(f32(location.x), f32(location.y) );
 
 	R = uni.iResolution.xy;
+    Grid = vec2<f32>(uni.grid_size.xy);
+
+    // G2R is a private global variable, and it's used in border()
+    R2G = R / vec2<f32>(uni.grid_size.xy);
+
 	time = uni.iTime;
 	Mouse = uni.iMouse;
 

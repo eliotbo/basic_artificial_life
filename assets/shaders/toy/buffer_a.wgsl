@@ -87,11 +87,13 @@ fn get_index( location: vec2<i32>) -> i32 {
 // RUST_LOG="wgpu=error,naga=warn,info" cargo run --release --example simpler_particles  
 
 var<private> R: vec2<f32>;
+var<private> Grid: vec2<f32>;
+var<private> R2G: vec2<f32>; // grid.x to resolution.x ratio
 var<private> Mouse: vec4<f32>;
 var<private> time: f32;
 var<private> s0: vec4<u32>;
 // let particle_size: f32 = 10.5;
-let particle_size: f32 = 5.0;
+let particle_size: f32 = 4.5;
 let relax_value: f32 = 0.3;
 
 fn Rot(ang: f32) -> mat2x2<f32> {
@@ -108,12 +110,16 @@ fn sdBox(p: vec2<f32>, b: vec2<f32>) -> f32 {
 } 
 
 fn border(p: vec2<f32>) -> f32 {
-	let bound: f32 = -sdBox(p - R * 0.5, R * vec2<f32>(0.5, 0.5));
-	let box: f32 = sdBox(Rot(0. * time - 0.) * (p - R * vec2<f32>(0.5, 0.6)), R * vec2<f32>(0.05, 0.01));
-	let drain: f32 = -sdBox(p - R * vec2<f32>(0.5, 0.7), R * vec2<f32>(1.5, 0.5));
+    let edge = 0.01;
+	let bound: f32 = -sdBox(p - R * (0.5 - 0.0), R * vec2<f32>(0.5 - edge, 0.45 ));
+    // let bound: f32 = -sdBox(p, R * vec2<f32>(1.0, 1.0));
+
+	// let box: f32 = sdBox(Rot(0. * time - 0.) * (p - R * vec2<f32>(0.5, 0.6)), R * vec2<f32>(0.05, 0.01));
+	// let drain: f32 = -sdBox(p - R * vec2<f32>(0.5, 0.7), R * vec2<f32>(1.5, 0.5));
 	// return bound - 15.;
 	// return min(bound, box);
-	return max(drain, min(bound, box));
+	// return max(drain, min(bound, box));
+    return bound;
 } 
 
 fn bN(p: vec2<f32>) -> vec3<f32> {
@@ -139,29 +145,29 @@ fn encode(g: GridSlot) -> GridSlotEncoded {
 
 
 
-fn getParticle(data: GridSlotEncoded, pos: vec2<f32>) -> Particle {
+fn getParticle(data: GridSlotEncoded, gpos: vec2<f32>) -> Particle {
     let grid_slot = decode(data);
 	var P: Particle = grid_slot.particle1;
-	P.X = P.X + pos;
-	P.NX = P.NX + pos;
+	P.X = P.X + gpos;
+	P.NX = P.NX + gpos;
 
     return P;
 
     // var P2: particle = grid_slot.particle2;
-    // P2.X = P2.X + pos;
-    // P2.NX = P2.NX + pos;
+    // P2.X = P2.X + gpos;
+    // P2.NX = P2.NX + gpos;
 
 	// return GridSlot(P, P2);
 } 
 
-fn saveParticles(P_in1: Particle, P_in2: Particle, pos: vec2<f32>) -> GridSlotEncoded {
+fn saveParticles(P_in1: Particle, P_in2: Particle, gpos: vec2<f32>) -> GridSlotEncoded {
 	var P = P_in1;
-	P.X = P.X - pos;
-	P.NX = P.NX - pos;
+	P.X = P.X - gpos;
+	P.NX = P.NX - gpos;
 
     var P2 = P_in2;
-    P2.X = P2.X - pos;
-    P2.NX = P2.NX - pos;
+    P2.X = P2.X - gpos;
+    P2.NX = P2.NX - gpos;
 
 	return GridSlotEncoded(P, P2);
 } 
@@ -242,7 +248,8 @@ fn Integrate(
 	P: ptr<function, Particle>, 
 	pos: vec2<f32>
 )  {
-	var I: i32 = 3;
+	var I: i32 = i32(ceil(particle_size));
+    
 
 	for (var i: i32 = -I; i <= I; i = i + 1) {
 	for (var j: i32 = -I; j <= I; j = j + 1) {
@@ -264,8 +271,8 @@ fn Integrate(
 			var P0V: vec2<f32> = (P0.NX - P0.X) / 2.;
 
 			if (uni.iMouse.z > 0.) {
-				let dm: vec2<f32> = P0.NX - uni.iMouse.xy;
-				let d: f32 = length(dm / 50.);
+				let dm: vec2<f32> = P0.NX - uni.iMouse.xy / R2G;
+				let d: f32 = length(dm / 50.) * R2G.x;
 				P0V = P0V + (normalize(dm) * exp(-d * d) * 0.3);
 			}
 
@@ -298,15 +305,18 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 	var pos = vec2<f32>(f32(location.x), f32(location.y) );
 
 	R = uni.iResolution.xy;
+    R2G = R / vec2<f32>(uni.grid_size.xy);
 	rng_initialize(pos, i32(uni.iFrame));
 	var P: Particle;
+
+    
 
     // var ddd = buffer_d;
 	Integrate(&P, pos);
 
 	// if (uni.iFrame == 0) {
 	#ifdef INIT
-		if (rand() > 0.992) {
+		if (rand() > 0.902) {
 			P.X = pos;
 			P.NX = pos + (rand2() - 0.5) * 0.;
 			let r: f32 = pow(rand(), 2.);

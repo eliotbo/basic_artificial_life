@@ -71,12 +71,12 @@ pub const WORKGROUP_SIZE: u32 = 8;
 pub const WORKGROUP_SIZE_BUF: u32 = 8;
 // pub const NUM_PARTICLES_X: u32 = 240;
 // pub const NUM_PARTICLES_Y: u32 = 150;
-pub const NUM_PARTICLES_X: u32 = 1600;
-pub const NUM_PARTICLES_Y: u32 = 800;
+pub const NUM_PARTICLES_X: u32 = 200;
+pub const NUM_PARTICLES_Y: u32 = 100;
 pub const NUM_PARTICLES: usize = (NUM_PARTICLES_X * NUM_PARTICLES_Y) as usize;
 
-pub const WINDOW_WIDTH: f32 = 1600.;
-pub const WINDOW_HEIGHT: f32 = 800.;
+pub const WINDOW_WIDTH: f32 = 800.;
+pub const WINDOW_HEIGHT: f32 = 400.;
 
 pub const UNIFORM_NUM_SINGLES: u64 = 32;
 // pub const BORDERS: f32 = 1.0;

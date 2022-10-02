@@ -56,6 +56,9 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 	var pos = vec2<f32>(f32(location.x), f32(location.y) );
 
 	R = uni.iResolution.xy;
+    Grid = vec2<f32>(uni.grid_size.xy);
+    R2G = R / vec2<f32>(uni.grid_size.xy);
+
 	time = uni.iTime;
 	Mouse = uni.iMouse;
 
