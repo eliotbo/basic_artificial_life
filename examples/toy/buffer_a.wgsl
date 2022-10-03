@@ -14,9 +14,9 @@ fn Integrate(
 	P: ptr<function, Particle>, 
 	pos: vec2<f32>
 )  {
-	var I: i32 = i32(ceil(particle_size));
+	var I: i32 = i32(ceil(particle_size)) + 1;
     // var I: i32 = 3;
-    var did_find_particle: bool = false;
+    // var did_find_particle: bool = false;
     
 
 	for (var i: i32 = -I; i <= I; i = i + 1) {
@@ -53,26 +53,26 @@ fn Integrate(
 			P0.NX = P0.NX + P0V * 2.;
 			(*P) = P0;
 
-            did_find_particle = true;
-			break;
+            // did_find_particle = true;
+			// break;
 		}
 	}
 
 	}
 
-    if (!did_find_particle) {
-        (*P) = Particle(
-            vec2<f32>(0.), 
-            vec2<f32>(0.), 
-            0., 0., 0u, 0.
-        );
-    }
+    // if (!did_find_particle) {
+    //     (*P) = Particle(
+    //         vec2<f32>(0.), 
+    //         vec2<f32>(0.), 
+    //         0., 0., 0u, 0.
+    //     );
+    // }
 
 } 
 
 
 
-@compute @workgroup_size(8, 8, 1)
+@compute @workgroup_size(16, 16, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // let R: vec2<f32> = uni.iResolution.xy;
     let y_inverted_location = vec2<i32>(i32(invocation_id.x), i32(R.y) - i32(invocation_id.y));
@@ -93,12 +93,13 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
 
 	#ifdef INIT
-		if (rand() > 0.902) {
+		if (rand() > 0.85722) {
 			P.X = pos;
 			P.NX = pos + (rand2() - 0.5) * 0.;
 			let r: f32 = pow(rand(), 2.);
 			P.M = mix(1., 4., r);
 			P.R = mix(1., particle_size, r);
+            // P.R = mix(2., particle_size, r);
             P.K = u32(rand4().a * 5.0);
             // P.K = 1u;
 		} else { 

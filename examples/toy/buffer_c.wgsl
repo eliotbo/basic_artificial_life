@@ -6,7 +6,7 @@ fn Simulation(
 	pos: vec2<f32>
 )  {
 	var F: vec2<f32> = vec2<f32>(0.);
-	var I: i32 = i32(ceil(particle_size));
+	var I: i32 = i32(ceil(particle_size)) + 2;
 	// var I: i32 = 4;
 
 	for (var i: i32 = -I; i <= I; i = i + 1) {
@@ -40,13 +40,15 @@ fn Simulation(
 	}
 	}
 
-	let dp: vec2<f32> = (*P).NX * R2G;
-	var d: f32 = border(dp);
+	// let dp: vec2<f32> = (*P).NX * R2G;
+    let dp: vec2<f32> = (*P).NX * R2G;
+	var d: f32 = border_r(dp, (*P).R);
+
 	if (d < 0.) { F = F - (bN(dp).xy * d); }
 	(*P).NX = (*P).NX + (F * 0.9 / 3.);
 }
 
-@compute @workgroup_size(8, 8, 1)
+@compute @workgroup_size(16, 16, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // let R: vec2<f32> = uni.iResolution.xy;
     // let y_inverted_location = vec2<i32>(i32(invocation_id.x), i32(R.y) - i32(invocation_id.y));

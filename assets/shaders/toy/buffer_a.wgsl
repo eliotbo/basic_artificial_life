@@ -21,7 +21,7 @@ struct Particle {
 
 struct GridSlot {
     particle1: Particle,
-    particle2: Particle,
+    // particle2: Particle,
 };
 
 struct Trails {
@@ -30,7 +30,7 @@ struct Trails {
 
 struct GridSlotEncoded {
     particle1: Particle,
-    particle2: Particle,
+    // particle2: Particle,
 };
 
 struct TrailBuffer {
@@ -96,6 +96,8 @@ var<private> s0: vec4<u32>;
 // let particle_size: f32 = 10.5;
 let particle_size: f32 = 2.2;
 let relax_value: f32 = 0.3;
+
+let liquify = true;
 
 // struct Particle {
 // 	X: vec2<f32>,
@@ -164,9 +166,17 @@ fn sdBox(p: vec2<f32>, b: vec2<f32>) -> f32 {
 	return length(max(d, vec2<f32>(0.))) + min(max(d.x, d.y), 0.);
 } 
 
+fn border_r(p: vec2<f32>, r: f32) -> f32 {
+    // r: radius of ball
+    let edge = 10.0 * R2G;
+	let bound: f32 = -sdBox(p - R / 2.0, R / 2.0 - edge - r);
+    return bound;
+} 
+
+
 fn border(p: vec2<f32>) -> f32 {
     let edge = 10.0 * R2G;
-	let bound: f32 = -sdBox(p - R * (0.5 - 0.0), R / 2.0 - edge );
+	let bound: f32 = -sdBox(p - R / 2.0, R / 2.0 - edge );
     // let bound: f32 = -sdBox(p, R * vec2<f32>(1.0, 1.0));
 
 	// let box: f32 = sdBox(Rot(0. * time - 0.) * (p - R * vec2<f32>(0.5, 0.6)), R * vec2<f32>(0.05, 0.01));
@@ -180,21 +190,26 @@ fn border(p: vec2<f32>) -> f32 {
 fn bN(p: vec2<f32>) -> vec3<f32> {
 	var dx: vec3<f32> = vec3<f32>(-1., 0., 1.);
 	let idx: vec4<f32> = vec4<f32>(-1. / 1., 0., 1. / 1., 0.25);
-	var r: vec3<f32> = idx.zyw * border(p + dx.zy) + idx.xyw * border(p + dx.xy) + idx.yzw * border(p + dx.yz) + idx.yxw * border(p + dx.yx);
+	var r: vec3<f32> = 
+        idx.zyw * border(p + dx.zy) + 
+        idx.xyw * border(p + dx.xy) + 
+        idx.yzw * border(p + dx.yz) + 
+        idx.yxw * border(p + dx.yx);
 	return vec3<f32>(normalize(r.xy), r.z + 0.0001);
+
 } 
 
 fn decode(g: GridSlotEncoded) -> GridSlot {
     return GridSlot(
         g.particle1,
-        g.particle2
+        // g.particle2
     );
 }
 
 fn encode(g: GridSlot) -> GridSlotEncoded {
     return GridSlotEncoded(
         g.particle1,
-        g.particle2
+        // g.particle2
     );
 }
 
@@ -220,11 +235,12 @@ fn saveParticles(P_in1: Particle, P_in2: Particle, gpos: vec2<f32>) -> GridSlotE
 	P.X = P.X - gpos;
 	P.NX = P.NX - gpos;
 
-    var P2 = P_in2;
-    P2.X = P2.X - gpos;
-    P2.NX = P2.NX - gpos;
+    // var P2 = P_in2;
+    // P2.X = P2.X - gpos;
+    // P2.NX = P2.NX - gpos;
 
-	return GridSlotEncoded(P, P2);
+	// return GridSlotEncoded(P, P2);
+    return GridSlotEncoded(P);
 } 
 
 
@@ -303,9 +319,9 @@ fn Integrate(
 	P: ptr<function, Particle>, 
 	pos: vec2<f32>
 )  {
-	var I: i32 = i32(ceil(particle_size));
+	var I: i32 = i32(ceil(particle_size)) + 1;
     // var I: i32 = 3;
-    var did_find_particle: bool = false;
+    // var did_find_particle: bool = false;
     
 
 	for (var i: i32 = -I; i <= I; i = i + 1) {
@@ -342,26 +358,26 @@ fn Integrate(
 			P0.NX = P0.NX + P0V * 2.;
 			(*P) = P0;
 
-            did_find_particle = true;
-			break;
+            // did_find_particle = true;
+			// break;
 		}
 	}
 
 	}
 
-    if (!did_find_particle) {
-        (*P) = Particle(
-            vec2<f32>(0.), 
-            vec2<f32>(0.), 
-            0., 0., 0u, 0.
-        );
-    }
+    // if (!did_find_particle) {
+    //     (*P) = Particle(
+    //         vec2<f32>(0.), 
+    //         vec2<f32>(0.), 
+    //         0., 0., 0u, 0.
+    //     );
+    // }
 
 } 
 
 
 
-@compute @workgroup_size(8, 8, 1)
+@compute @workgroup_size(16, 16, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // let R: vec2<f32> = uni.iResolution.xy;
     let y_inverted_location = vec2<i32>(i32(invocation_id.x), i32(R.y) - i32(invocation_id.y));
@@ -382,12 +398,13 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
 
 	#ifdef INIT
-		if (rand() > 0.902) {
+		if (rand() > 0.85722) {
 			P.X = pos;
 			P.NX = pos + (rand2() - 0.5) * 0.;
 			let r: f32 = pow(rand(), 2.);
 			P.M = mix(1., 4., r);
 			P.R = mix(1., particle_size, r);
+            // P.R = mix(2., particle_size, r);
             P.K = u32(rand4().a * 5.0);
             // P.K = 1u;
 		} else { 

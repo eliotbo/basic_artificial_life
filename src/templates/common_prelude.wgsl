@@ -21,7 +21,7 @@ struct Particle {
 
 struct GridSlot {
     particle1: Particle,
-    particle2: Particle,
+    // particle2: Particle,
 };
 
 struct Trails {
@@ -30,7 +30,7 @@ struct Trails {
 
 struct GridSlotEncoded {
     particle1: Particle,
-    particle2: Particle,
+    // particle2: Particle,
 };
 
 struct TrailBuffer {

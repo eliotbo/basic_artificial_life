@@ -68,16 +68,18 @@ use texture_c::*;
 mod texture_d;
 use texture_d::*;
 
-pub const WORKGROUP_SIZE: u32 = 8;
-pub const WORKGROUP_SIZE_BUF: u32 = 8;
-pub const NUM_PARTICLES_X: u32 = 400;
-pub const NUM_PARTICLES_Y: u32 = 200;
-// pub const NUM_PARTICLES_X: u32 = 100;
-// pub const NUM_PARTICLES_Y: u32 = 50;
+pub const WORKGROUP_SIZE: u32 = 16;
+pub const WORKGROUP_SIZE_BUF: u32 = 16;
+pub const NUM_PARTICLES_X: u32 = 384;
+pub const NUM_PARTICLES_Y: u32 = 192;
+// pub const NUM_PARTICLES_X: u32 = 1800;
+// pub const NUM_PARTICLES_Y: u32 = 900;
 pub const NUM_PARTICLES: usize = (NUM_PARTICLES_X * NUM_PARTICLES_Y) as usize;
 
-pub const WINDOW_WIDTH: f32 = 800.;
-pub const WINDOW_HEIGHT: f32 = 400.;
+// pub const WINDOW_WIDTH: f32 = 3600.;
+// pub const WINDOW_HEIGHT: f32 = 1800.;
+pub const WINDOW_WIDTH: f32 = 768.;
+pub const WINDOW_HEIGHT: f32 = 384.;
 
 pub const UNIFORM_NUM_SINGLES: u64 = 32;
 // pub const BORDERS: f32 = 1.0;
@@ -472,20 +474,20 @@ impl Into<Particle> for ParticleStd140 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct GridSlot {
     pub particle1: Particle,
-    pub particle2: Particle,
+    // pub particle2: Particle,
 }
 
 #[derive(Clone, Copy, AsStd140)]
 pub struct GridSlotEncoded {
     pub particle1: ParticleStd140,
-    pub particle2: ParticleStd140,
+    // pub particle2: ParticleStd140,
 }
 
 impl Into<GridSlotEncoded> for GridSlot {
     fn into(self) -> GridSlotEncoded {
         GridSlotEncoded {
             particle1: self.particle1.into(),
-            particle2: self.particle2.into(),
+            // particle2: self.particle2.into(),
         }
     }
 }
@@ -494,7 +496,7 @@ impl Into<GridSlot> for GridSlotEncoded {
     fn into(self) -> GridSlot {
         GridSlot {
             particle1: self.particle1.into(),
-            particle2: self.particle2.into(),
+            // particle2: self.particle2.into(),
         }
     }
 }
@@ -503,7 +505,7 @@ impl Default for GridSlotEncoded {
     fn default() -> Self {
         GridSlotEncoded {
             particle1: ParticleStd140::default(),
-            particle2: ParticleStd140::default(),
+            // particle2: ParticleStd140::default(),
         }
     }
 }

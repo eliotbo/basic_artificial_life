@@ -46,7 +46,7 @@ fn sdXSegment(p: f32, x: f32) -> f32 {
 
 
 
-// @compute @workgroup_size(8, 8, 1)
+// @compute @workgroup_size(16, 16, 1)
 // fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 //     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
 
@@ -162,7 +162,7 @@ fn sdXSegment(p: f32, x: f32) -> f32 {
 //     textureStore(texture, location, color);
 // }
 
-// @compute @workgroup_size(8, 8, 1)
+// @compute @workgroup_size(16, 16, 1)
 // fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 //      R = uni.iResolution.xy;
 //     let y_inverted_location = vec2<i32>(i32(invocation_id.x), i32(R.y) - i32(invocation_id.y));
@@ -180,7 +180,7 @@ fn opSmoothIntersection( d1: f32, d2: f32, k: f32 ) -> f32 {
     let h: f32 = clamp( 0.5 - 0.5*(d2-d1)/k, 0.0, 1.0 );
     return mix( d2, d1, h ) + k*h*(1.0-h); }
 
-@compute @workgroup_size(8, 8, 1)
+@compute @workgroup_size(16, 16, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     R = uni.iResolution.xy;
     Grid = vec2<f32>(uni.grid_size.xy);
@@ -259,57 +259,68 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     var do_break = false;
 	for (var i: i32 = -I; i <= I; i = i + 1) {
         
-	for (var j: i32 = -I; j <= I; j = j + 1) {
+        for (var j: i32 = -I; j <= I; j = j + 1) {
 
-		var tpos: vec2<i32> = vec2<i32>(pos_grid) + vec2<i32>(i, j);
+            var tpos: vec2<i32> = vec2<i32>(pos_grid) + vec2<i32>(i, j);
 
-        var data: GridSlotEncoded = buffer_d.pixels[get_index(tpos)];
-		// var data: vec4<f32> = textureLoad(buffer_d, vec2<i32>(tpos));
+            var data: GridSlotEncoded = buffer_d.pixels[get_index(tpos)];
+            // var data: vec4<f32> = textureLoad(buffer_d, vec2<i32>(tpos));
 
-		var P0: Particle = getParticle(data, vec2<f32>(tpos));
+            var P0: Particle = getParticle(data, vec2<f32>(tpos));
 
-		if (P0.M == 0.) { continue; }
+            if (P0.M == 0.) { continue; }
 
-        // var nd: f32 = distance(pos, P0.NX )  - P0.R ;
-		// var nd: f32 = distance(pos, P0.NX * cc)  - P0.R * cc;
-        var nd: f32 = distance(pos, P0.NX * R2G)  - P0.R * R2G.x / 1.05;
-        // var nd: f32 = distance(pos_grid, P0.NX ) - P0.R ;
+            // var nd: f32 = distance(pos, P0.NX )  - P0.R ;
+            // var nd: f32 = distance(pos, P0.NX * cc)  - P0.R * cc;
+            var nd: f32 = distance(pos, P0.NX * R2G)  - P0.R * R2G.x / 1.05;
+            // var nd: f32 = distance(pos_grid, P0.NX ) - P0.R ;
 
-        
-        d = opSmoothUnion(d, nd, 5.95);
-        // d = opSmoothIntersection(d, nd, 0.25);
-        
-        // choose the closest particle as the one to draw 
-		if (nd < mind) {
-			let V: vec2<f32> = (P0.NX - P0.X) * 1. / 2. ;
-			c = vec3<f32>(V * 0.5 + 0.5, (P0.M - 1.) / 3.);
-			c = mix(vec3<f32>(1.), c, length(V));
-			m = P0.M;
-            mind = nd;
-
-            // ball_brightness = c.z;
             
-            switch (P0.K){
-                case 0u { ball_color = pink * ball_brightness; }
-                case 1u { ball_color = salmon * ball_brightness; }
-                case 2u { ball_color = beige * ball_brightness; }
-                case 3u { ball_color =  dark_purple * ball_brightness; }
-                default { ball_color = dark_green * ball_brightness; }
+            
+            // if liquify {
+            //     d = opSmoothUnion(d, nd, 5.95);
+            // } else {
+            //     d = min(d, nd);
+            // }
 
+            // d = opSmoothIntersection(d, nd, 0.25);
+            
+            // choose the closest particle as the one to draw 
+            if (nd < mind) {
+                let V: vec2<f32> = (P0.NX - P0.X) * 1. / 2. ;
+                c = vec3<f32>(V * 0.5 + 0.5, (P0.M - 1.) / 3.);
+                c = mix(vec3<f32>(1.), c, length(V));
+                m = P0.M;
+                mind = nd;
+
+                // ball_brightness = c.z;
+                
+                switch (P0.K){
+                    case 0u { ball_color = pink * ball_brightness; }
+                    case 1u { ball_color = salmon * ball_brightness; }
+                    case 2u { ball_color = beige * ball_brightness; }
+                    case 3u { ball_color =  dark_purple * ball_brightness; }
+                    default { ball_color = dark_green * ball_brightness; }
+
+                }
             }
-		}
 
-		// d = min(d, nd);
-        
+            d = min(d, nd);
+            if (d < 0.) {
+                do_break = true;
+                break;
+            }
 
-		// if (d < 0.) {
-        //     do_break = true;
-        //     break;
-        // }
-        
-	}
+            // if !liquify {
+            //     if (d < 0.) {
+            //         do_break = true;
+            //         break;
+            //     }
+            // }
+            
+        }
 
-    // if (do_break) { break; }
+        if (do_break) { break; }
 
 	}
 
@@ -322,7 +333,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
 	if (d < 0.) { 
         // d = sin(d * 2.0);
-        col = mix(ball_color, col, d + 0.);
+        col = mix(ball_color, col, d);
      }
 
 
